@@ -1,0 +1,4 @@
+*.rar
+/gen
+/bin
+commit_log.txt

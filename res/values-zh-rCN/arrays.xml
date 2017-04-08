@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="dialog_operations">
+        <item>3小時（默认）</item>
+        <item>5小時</item>
+        <item>8小時</item>
+        <item>一直</item>
+    </string-array>
+    <string-array name="onoff_operations">
+        <item>30次</item>
+        <item>50次</item>
+        <item>100次</item>
+        <item>10000次</item>
+        <item>一直</item>
+        <item>其他</item>
+    </string-array>
+    <string-array name="onoff_operations_timegap">
+        <item>25秒</item>
+        <item>45秒</item>
+        <item>150秒</item>
+        <item>600秒</item>
+        <item>1200秒</item>
+        <item>7200秒</item>
+    </string-array>
+    <string-array name="reboot_operations">
+        <item>10次</item>
+        <item>20次</item>
+        <item>30次</item>
+        <item>50次</item>
+        <item>一直</item>
+    </string-array>
+    <string-array name="copy_operations">
+        <item>10次</item>
+        <item>30次</item>
+        <item>50次</item>
+        <item>100次</item>
+    </string-array>
+    <string-array name="cpu_num_operations">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+    </string-array>
+    <string-array name="ddr_operations">
+        <item>10M</item>
+        <item>20M</item>
+        <item>30M</item>
+        <item>40M</item>
+    </string-array>
+    <string-array name="ddr_counts_operations">
+        <item>1次</item>
+        <item>10次</item>
+        <item>30次</item>
+        <item>40次</item>
+    </string-array>
+</resources>
