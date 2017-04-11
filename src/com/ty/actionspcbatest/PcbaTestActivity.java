@@ -455,7 +455,7 @@ public class PcbaTestActivity extends Activity {
 			try{
 		          mCamera = Camera.open(mCurrentIdx);
 		          mCameraParam = mCamera.getParameters();
-		          mCameraParam.setFlashMode(Parameters.FLASH_MODE_ON);
+		          mCameraParam.setFlashMode(Parameters.FLASH_MODE_TORCH);
 		          mCamera.setParameters(mCameraParam);
 			}catch(Exception e){
 				Log.i(TAG, "openCamera e="+e);
