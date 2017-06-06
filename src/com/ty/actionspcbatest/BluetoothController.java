@@ -12,6 +12,7 @@ import android.content.IntentFilter;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
@@ -61,8 +62,9 @@ public class BluetoothController {
 		mContext = context;
 		mUiHandler = handler;
 		
-		BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
-		mAdapter = bluetoothManager.getAdapter();
+		mAdapter = BluetoothAdapter.getDefaultAdapter();
+		//BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
+		//mAdapter = bluetoothManager.getAdapter();
 	}
 	
 	public void start(){

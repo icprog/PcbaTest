@@ -61,4 +61,6 @@
     <string name="switch_camera">切换前后摄像头</string>
     <string name="vibration_confirm">请确认一下开始振动</string>
     <string name="calibration_button">校准</string>
+    
+    <string name="sdcard_size_delay_show_hint">已检测到T卡，请等待计算容量！</string>
 </resources>

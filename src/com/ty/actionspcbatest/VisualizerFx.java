@@ -38,6 +38,7 @@ import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import java.io.File;
 import java.io.IOException;
 
 public class VisualizerFx extends LinearLayout {
@@ -67,7 +68,7 @@ public class VisualizerFx extends LinearLayout {
 		
         // Create the MediaPlayer
         mMediaPlayer = MediaPlayer.create(getContext(), R.raw.scarborough_fair);
-
+        
         setupVisualizerFxAndUI();
         // Make sure the visualizer is enabled only when you actually want to receive data, and
         // when it makes sense to receive data.
@@ -171,6 +172,18 @@ public class VisualizerFx extends LinearLayout {
         mMediaPlayer.release();
         mMediaPlayer = null;
       }
+    }
+    
+    public void testStart(File file){
+    	//mMediaPlayer = MediaPlayer.create(getContext(), R.raw.scarborough_fair);
+    	mMediaPlayer = MediaPlayer.create(getContext(), Uri.fromFile(file));
+    	mMediaPlayer.start();
+    }
+    
+    public void testStop(){
+    	mMediaPlayer.stop();
+    	mMediaPlayer.release();
+    	mMediaPlayer = null;
     }
 }
 

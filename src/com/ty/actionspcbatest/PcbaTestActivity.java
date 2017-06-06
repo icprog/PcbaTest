@@ -12,6 +12,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
 import android.hardware.Sensor;
@@ -22,12 +23,14 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.os.StatFs;
 import android.os.Vibrator;
+import android.os.storage.StorageManager;
 import android.provider.Settings;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -54,6 +57,14 @@ public class PcbaTestActivity extends Activity {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.main);
+		
+		Intent intent = getIntent();
+		if(intent != null){
+			boolean autoLaunch = intent.getBooleanExtra("auto_launch", false);
+			//if(!autoLaunch){
+			setAutoLaunchFlag();
+			//}
+		}
 		
 		mLayoutInflater = (LayoutInflater)this.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 		mItemPresenters = new ArrayList<TestItemPresenter>();
@@ -89,6 +100,25 @@ public class PcbaTestActivity extends Activity {
 		for(int i=0;i<presenterSize;i++){
 			TestItemPresenter presenter = mItemPresenters.get(i);
 			presenter.doTest();
+		}
+	}
+	
+	private void setAutoLaunchFlag(){
+		if (Build.VERSION.SDK_INT == Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1){
+			SharedPreferences settings = getSharedPreferences("flag",0);
+			boolean autoLaunched = settings.getBoolean("auto_launched", false);
+			if(!autoLaunched){
+				SharedPreferences.Editor editor = settings.edit();
+				editor.putBoolean("auto_launched", true);
+				editor.commit();
+			}			
+		}else{
+			SwitchLogo swLogo = new SwitchLogo();
+			byte logoIndex = swLogo.getLogoIndex();
+			if(logoIndex == 0){
+				swLogo.setLogoIndex((byte)1);
+				android.util.Log.i(TAG,"disable boot auto launch");
+			}
 		}
 	}
 	
@@ -276,8 +306,40 @@ public class PcbaTestActivity extends Activity {
 	}
 	
 	public class TFCardTestPresenter extends ManualItemPresenter{
-		public static final String TFCARD_PATH = "/storage/sdcard1";
+		private String mExtCardPath;
 		private boolean mRegistered;
+		private StorageManager mStorageManager;
+		private Handler mHandler = new Handler();
+		
+		private Runnable mDelayTestRunnable = new Runnable(){
+			@Override
+			public void run(){
+				Log.i(TAG, "mDelayTestRunnable doTest");
+				if(isExtCardOk()){
+					doRealTest();
+				}
+			}
+		};
+		
+		private boolean isExtCardOk(){
+			mExtCardPath = null;		
+			if (Build.VERSION.SDK_INT == Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1){
+				if(Environment.MEDIA_MOUNTED.equals(mStorageManager.getVolumeState("/mnt/sdcard2"))){
+					mExtCardPath = "/mnt/sdcard";
+				}
+			}else{
+				String path = "/storage/sdcard1";
+				//state = Environment.getStorageState(new File(mExtCardPath));
+				String state = mStorageManager.getVolumeState(path);
+				if(Environment.MEDIA_MOUNTED.equals(state)){
+					mExtCardPath = path;
+				}
+			}			
+			if(mExtCardPath != null){
+				return true;
+			}
+			return false;
+		}
 		
 		private BroadcastReceiver mReceiver = new BroadcastReceiver(){
 			@Override
@@ -286,8 +348,8 @@ public class PcbaTestActivity extends Activity {
 				if(Intent.ACTION_MEDIA_MOUNTED.equals(action)){
 					String mountPath = intent.getData().getPath();
 					Log.i(TAG, "mountPath="+mountPath);
-					if(TFCardTestPresenter.TFCARD_PATH.equals(mountPath)){
-						doRealTest();
+					if(isExtCardOk()){
+						doRealTest();						
 					}
 				}
 			}
@@ -295,8 +357,11 @@ public class PcbaTestActivity extends Activity {
 		
 		public void doTest(){
 			showHint(getHint());
-			String state = Environment.getStorageState(new File(TFCARD_PATH));
-			if(Environment.MEDIA_MOUNTED.equals(state)){
+			if(mStorageManager == null){
+				mStorageManager = (StorageManager) getSystemService(Context.STORAGE_SERVICE);
+			}
+		
+			if(isExtCardOk()){
 				doRealTest();
 			}else{
 				registerListener();
@@ -308,12 +373,18 @@ public class PcbaTestActivity extends Activity {
 		}
 		
 		public void doRealTest(){			
-			StatFs localStatFs = new StatFs(TFCARD_PATH);
+			StatFs localStatFs = new StatFs(mExtCardPath);
 			long bc = localStatFs.getBlockCount();
 			long bz = localStatFs.getBlockSize();
+			Log.i(TAG, "mExtCardPath="+mExtCardPath+",bc="+bc+",bz="+bz);
 			float sizeGb = (float)(bc*bz/1024L/1024L/1024L);
-			showSuccess("PASS("+sizeGb+"GB)");
-			unregisterListener();
+			if(sizeGb > 0f){
+				showSuccess("PASS("+sizeGb+"GB)");				
+			}else{
+				Toast.makeText(PcbaTestActivity.this, PcbaTestActivity.this.getString(R.string.sdcard_size_delay_show_hint), Toast.LENGTH_SHORT).show();;
+				mHandler.postDelayed(mDelayTestRunnable, 4000);
+			}
+			//unregisterListener();
 		}
 		
 		private void registerListener(){
@@ -579,7 +650,9 @@ public class PcbaTestActivity extends Activity {
 				@Override
 				public void onClick(View arg0) {
 					startRecord();
-					//mVisualizerFx.toggle();
+					//mVisualizerFx.testStop();
+					//mVisualizerFx.testStart(new File(PcbaTestActivity.this.getCacheDir().getPath() + File.separator + "record.3gpp"));
+					//mVisualizerFx.changePlayFile(Uri.fromFile(new File(PcbaTestActivity.this.getCacheDir().getPath() + File.separator + "TestRecordFile.3gpp")));
 				}
 			});
 			
@@ -590,13 +663,26 @@ public class PcbaTestActivity extends Activity {
 		private void startRecord(){			
 			mVisualizerFx.stop();
 			mHandler.removeCallbacks(delayPlayRunnable);
-			
-			mRecordFile = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + "TestRecordFile.aac");
+						
+			//mRecordFile = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + "TestRecordFile.aac");
+			mRecordFile = new File(PcbaTestActivity.this.getFilesDir() + File.separator + "TestRecordFile.3gpp");
+			//mRecordFile = new File(PcbaTestActivity.this.getCacheDir().getPath() + File.separator + "TestRecordFile.3gpp");
+			//mRecordFile = new File(Environment.getExternalStorageDirectory()+File.separator +"TestRecordFile.3gpp");
+			Log.i(TAG, "startRecord mRecordFile="+mRecordFile);
 			if(mRecorder == null){
 				mRecorder = new Recorder();
 			}
 			mRecorder.stopRecording();
 			mRecordFile.delete();
+			
+			try{
+				mRecordFile.createNewFile();
+				String path = mRecordFile.getAbsolutePath();
+				Process p = Runtime.getRuntime().exec("chmod 777 " + path);  
+				p.waitFor();  
+			}catch(Exception e){
+				Log.i(TAG, "createNewFile e="+e);
+			}
 			mVUMeter.setRecorder(this.mRecorder);
 			mRecorder.setOutputFile(mRecordFile.getAbsolutePath());
 			mRecorder.startRecording(0);

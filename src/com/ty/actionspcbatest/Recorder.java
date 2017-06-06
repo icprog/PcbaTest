@@ -56,7 +56,7 @@ public class Recorder implements MediaRecorder.OnErrorListener {
     public static final String RECORD_FOLDER = "Recording";
     public static final String SAMPLE_SUFFIX = ".tmp";
 
-    private static final String TAG = "SR/Recorder";
+    private static final String TAG = "hcj.Recorder";
     private static final String SAMPLE_PREFIX = "record";
 
     // M: the three below are all in millseconds
@@ -192,7 +192,7 @@ public class Recorder implements MediaRecorder.OnErrorListener {
     }
     
     public boolean stopRecording() {
-        //LogUtils.i(TAG, "<stopRecording> start");
+        Log.i(TAG, "stopRecording");
         if (((STATE_PAUSE_RECORDING != mCurrentState) && 
              (STATE_RECORDING != mCurrentState)) || (null == mRecorder)) {
             //LogUtils.i(TAG, "<stopRecording> end 1");
@@ -207,6 +207,7 @@ public class Recorder implements MediaRecorder.OnErrorListener {
                 }
                 setState(STATE_IDLE);
             } catch (RuntimeException exception) {
+            	Log.i(TAG, "stopRecording exception="+exception);
                 /** M:modified for stop recording failed. @{ */
                 handleException(false, exception);
                 setError(ERROR_RECORDING_FAILED);
@@ -243,13 +244,13 @@ public class Recorder implements MediaRecorder.OnErrorListener {
     	if(true){
     		mRecorder = new MediaRecorder();
             mRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mRecorder.setOutputFormat(1);
+            mRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
             mRecorder.setOutputFile(mSampleFile.getAbsolutePath());
             /**@}*/
-            mRecorder.setAudioEncoder(3);
-            mRecorder.setAudioChannels(2);
-            mRecorder.setAudioEncodingBitRate(48000);
-            mRecorder.setAudioSamplingRate(32000);
+            mRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB);
+            //mRecorder.setAudioChannels(2);
+            mRecorder.setAudioEncodingBitRate(28500);
+            mRecorder.setAudioSamplingRate(16000);
             if (fileSizeLimit > 0) {
                 mRecorder.setMaxFileSize(fileSizeLimit);
             }
