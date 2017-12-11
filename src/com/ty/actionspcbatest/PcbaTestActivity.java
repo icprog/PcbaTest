@@ -6,12 +6,18 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.ty.actionspcbatest.ShellUtils.CommandResult;
+import com.ty.actionspcbatest.misc.FMRadio;
+import com.ty.actionspcbatest.misc.SIMHelper;
+import com.ty.actionspcbatest.misc.Signal;
+import com.ty.actionspcbatest.misc.Utils;
 
 import android.app.Activity;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
@@ -27,11 +33,16 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Message;
+import android.os.ServiceManager;
 import android.os.StatFs;
+import android.os.SystemProperties;
 import android.os.Vibrator;
 import android.os.storage.StorageManager;
 import android.provider.Settings;
+import android.telephony.TelephonyManager;
+import android.text.format.Formatter;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -46,40 +57,54 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.internal.app.IMediaContainerService;
+import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.util.MemInfoReader;
+import com.mediatek.common.featureoption.*;
 
 public class PcbaTestActivity extends Activity {
 	private static final String TAG = "hcj.PcbaTestActivity";
 	private LayoutInflater mLayoutInflater;
 	private KeyTestPresenter mKeyTestPresenter;
+	private ArrayList<MiscItemPresenter> mMiscPresenters;
+	private SharedPreferences mSharedPreferences;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		
+		mSharedPreferences = getSharedPreferences("FactoryMode", 0);
+		
 		setContentView(R.layout.main);
 		
 		Intent intent = getIntent();
 		if(intent != null){
+			/*
 			boolean autoLaunch = intent.getBooleanExtra("auto_launch", false);
 			//if(!autoLaunch){
 			setAutoLaunchFlag();
 			//}
+			 *			 
+			*/
+			setAutoLaunched();
 		}
 		
 		mLayoutInflater = (LayoutInflater)this.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 		mItemPresenters = new ArrayList<TestItemPresenter>();
 		
 		LinearLayout autoTestContainer = (LinearLayout)findViewById(R.id.auto_test_container);
-		for(int i=0;i<AUTO_TEST_ITEMS.length;i++){
+		TestItem[] autoItems = Config.IS_TELEPHONY_SUPPORT ? AUTO_TEST_ITEMS_TELEPHONY : AUTO_TEST_ITEMS;
+		for(int i=0;i<autoItems.length;i++){
 			TestItemView child = new TestItemView(this);
-			child.setTitle(AUTO_TEST_ITEMS[i].mTitleId);
+			child.setTitle(autoItems[i].mTitleId);
 			LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1,-2);
 			autoTestContainer.addView(child, params);
 			
-			TestItemPresenter presenter = getTestItemPresenter(AUTO_TEST_ITEMS[i].mKey);
+			TestItemPresenter presenter = getTestItemPresenter(autoItems[i].mKey);
 			presenter.setTestItemView(child);
 			mItemPresenters.add(presenter);
 		}
+		
 		LinearLayout manualTestContainer = (LinearLayout)findViewById(R.id.manual_test_container);
 		for(int i=0;i<MANUAL_TEST_ITEMS.length;i++){
 			TestItemView child = new TestItemView(this);
@@ -94,12 +119,46 @@ public class PcbaTestActivity extends Activity {
 		
 		mItemPresenters.add(new MediaTestPresenter());
 		mItemPresenters.add(new TouchTestPresenter());
-		//mItemPresenters.add(new VibrateTestPresenter());
+		
+		if(Config.IS_TELEPHONY_SUPPORT){
+			mItemPresenters.add(new VibrateTestPresenter());
+			
+			mMiscPresenters = new ArrayList<MiscItemPresenter>();
+			View miscTitleView = findViewById(R.id.misc_test_title);
+			LinearLayout miscTestContainer = (LinearLayout)findViewById(R.id.misc_test_container);
+			miscTitleView.setVisibility(View.VISIBLE);
+			miscTestContainer.setVisibility(View.VISIBLE);
+			for(int i=0;i<MISC_TEST_ITEMS.length;i++){
+				MiscItemView child = new MiscItemView(this);
+				child.setTitle(MISC_TEST_ITEMS[i].mTitleId);
+				LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2,-2);
+				miscTestContainer.addView(child, params);
+				
+				TestItemPresenter presenter = getTestItemPresenter(MISC_TEST_ITEMS[i].mKey);
+				presenter.setTestItemView(child);
+				mItemPresenters.add(presenter);
+				
+				mMiscPresenters.add((MiscItemPresenter)presenter);
+				child.setTestItemPresenter((MiscItemPresenter)presenter);
+			}
+		}
 		
 		int presenterSize = mItemPresenters.size();
 		for(int i=0;i<presenterSize;i++){
 			TestItemPresenter presenter = mItemPresenters.get(i);
 			presenter.doTest();
+		}
+	}
+	
+	@Override
+	public void onResume(){
+		super.onResume();
+		if(mMiscPresenters != null){
+		int presenterSize = mMiscPresenters.size();
+		for(int i=0;i<presenterSize;i++){
+			MiscItemPresenter presenter = mMiscPresenters.get(i);
+			presenter.onResume();
+		}
 		}
 	}
 	
@@ -311,6 +370,23 @@ public class PcbaTestActivity extends Activity {
 		private StorageManager mStorageManager;
 		private Handler mHandler = new Handler();
 		
+		private volatile IMediaContainerService mContainerService;
+
+	    private final ServiceConnection mContainerConnection = new ServiceConnection() {
+	        @Override
+	        public void onServiceConnected(ComponentName name, IBinder service) {
+	            mContainerService = IMediaContainerService.Stub.asInterface(service);
+	            if(isExtCardOk()){
+					doRealTest();						
+				}
+	        }
+
+	        @Override
+	        public void onServiceDisconnected(ComponentName name) {
+	            mContainerService = null;
+	        }
+	    };
+		
 		private Runnable mDelayTestRunnable = new Runnable(){
 			@Override
 			public void run(){
@@ -322,6 +398,9 @@ public class PcbaTestActivity extends Activity {
 		};
 		
 		private boolean isExtCardOk(){
+			if (Build.VERSION.SDK_INT == Build.VERSION_CODES.JELLY_BEAN && (mContainerService == null)){
+				return false;
+			}
 			mExtCardPath = null;		
 			if (Build.VERSION.SDK_INT == Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1){
 				if(Environment.MEDIA_MOUNTED.equals(mStorageManager.getVolumeState("/mnt/sdcard2"))){
@@ -357,6 +436,12 @@ public class PcbaTestActivity extends Activity {
 		
 		public void doTest(){
 			showHint(getHint());
+			if (Build.VERSION.SDK_INT == Build.VERSION_CODES.JELLY_BEAN){
+				final Intent containerIntent = new Intent().setComponent(
+						new ComponentName(
+								"com.android.defcontainer", "com.android.defcontainer.DefaultContainerService"));
+			 	PcbaTestActivity.this.bindService(containerIntent, mContainerConnection, Context.BIND_AUTO_CREATE);
+			}
 			if(mStorageManager == null){
 				mStorageManager = (StorageManager) getSystemService(Context.STORAGE_SERVICE);
 			}
@@ -370,16 +455,36 @@ public class PcbaTestActivity extends Activity {
 		
 		public void doStop(){
 			unregisterListener();
+			if (Build.VERSION.SDK_INT == Build.VERSION_CODES.JELLY_BEAN){
+				PcbaTestActivity.this.unbindService(mContainerConnection);
+			}
 		}
 		
-		public void doRealTest(){			
-			StatFs localStatFs = new StatFs(mExtCardPath);
-			long bc = localStatFs.getBlockCount();
-			long bz = localStatFs.getBlockSize();
-			Log.i(TAG, "mExtCardPath="+mExtCardPath+",bc="+bc+",bz="+bz);
-			float sizeGb = (float)(bc*bz/1024L/1024L/1024L);
+		public void doRealTest(){		
+			android.util.Log.i("hcj", "mExtCardPath="+mExtCardPath);
+			long sizeGb = 0;
+			if (Build.VERSION.SDK_INT == Build.VERSION_CODES.JELLY_BEAN){
+				if(mContainerService != null){
+					try {
+                        final long[] stats = mContainerService.getFileSystemStats(
+                        		mExtCardPath);
+                        sizeGb = stats[0];
+                    } catch (Exception e) {
+                        Log.w(TAG, "Problem in container service", e);
+                    }
+				}
+			}if (Build.VERSION.SDK_INT == /*Build.VERSION_CODES.N*/24){
+				sizeGb = new File(mExtCardPath).getTotalSpace();
+			}else{
+				StatFs localStatFs = new StatFs(mExtCardPath);
+				long bc = localStatFs.getBlockCount();
+				long bz = localStatFs.getBlockSize();
+				Log.i(TAG, "mExtCardPath="+mExtCardPath+",bc="+bc+",bz="+bz);
+				sizeGb = (bc*bz/1024L/1024L/1024L);
+			}
 			if(sizeGb > 0f){
-				showSuccess("PASS("+sizeGb+"GB)");				
+				String size = Formatter.formatFileSize(PcbaTestActivity.this, sizeGb);
+				showSuccess("PASS("+size+")");				
 			}else{
 				Toast.makeText(PcbaTestActivity.this, PcbaTestActivity.this.getString(R.string.sdcard_size_delay_show_hint), Toast.LENGTH_SHORT).show();;
 				mHandler.postDelayed(mDelayTestRunnable, 4000);
@@ -748,9 +853,10 @@ public class PcbaTestActivity extends Activity {
 	}
 	
 	private class VibrateTestPresenter extends TestItemPresenter{
-		private Vibrator vibrator;
+		private Vibrator mVibrator;
 		
 		public void doTest(){
+			mVibrator = ((Vibrator)getSystemService("vibrator"));
 			mHandler.postDelayed(delayPlayRunnable,4000);
 		}
 		
@@ -761,8 +867,8 @@ public class PcbaTestActivity extends Activity {
 		private Runnable delayPlayRunnable = new Runnable(){
 			@Override
 			public void run(){
-				vibrator.vibrate(new long[] { 1000L, 10L, 100L, 1000L }, -1);
-				Toast.makeText(PcbaTestActivity.this, PcbaTestActivity.this.getString(R.string.vibration_confirm), 0).show();
+				mVibrator.vibrate(new long[] { 1000L, 10L, 100L, 1000L }, -1);
+				Toast.makeText(PcbaTestActivity.this, PcbaTestActivity.this.getString(R.string.vibration_confirm), Toast.LENGTH_LONG).show();
 			}
 		};
 	}
@@ -789,6 +895,14 @@ public class PcbaTestActivity extends Activity {
 			return new CameraTestPresenter();
 		}else if(key >= ITEM_KEY_MANUAL_START && key < (ITEM_KEY_MANUAL_START+ITEM_KEY_CATEGORY_COUNT)){
 			return new ManualItemPresenter();
+		}else if(key == ITEM_KEY_GPS){
+			return new GpsTestPresenter();
+		}else if(key == ITEM_KEY_CALL){
+			return new CallItemPresenter();
+		}else if(key == ITEM_KEY_SIM){
+			return new SimTestPresenter();
+		}else if(key == ITEM_KEY_FM){
+			return new FmItemPresenter();
 		}
 		return new TestItemPresenter();
 	}
@@ -803,8 +917,8 @@ public class PcbaTestActivity extends Activity {
 	
 	public class TestItemPresenter{
 		protected Handler mHandler = new Handler();
-		private TestItemView mTestItemView;
-		public void setTestItemView(TestItemView view){
+		protected ItemViewInterface mTestItemView;
+		public void setTestItemView(ItemViewInterface view){
 			mTestItemView = view;
 		}
 		
@@ -847,18 +961,23 @@ public class PcbaTestActivity extends Activity {
 	public static final int ITEM_KEY_CAMERA = ITEM_KEY_AUTO_START+4;
 	public static final int ITEM_KEY_BLUETOOTH = ITEM_KEY_AUTO_START+5;
 	public static final int ITEM_KEY_RTC = ITEM_KEY_AUTO_START+6;
+	public static final int ITEM_KEY_GPS = ITEM_KEY_AUTO_START+7;
+	public static final int ITEM_KEY_SIM = ITEM_KEY_AUTO_START+8;
 	
 	public static final int ITEM_KEY_MANUAL_START = 20;
 	public static final int ITEM_KEY_TFCARD = ITEM_KEY_MANUAL_START;
 	public static final int ITEM_KEY_USB = ITEM_KEY_MANUAL_START+1;
 	public static final int ITEM_KEY_HEADSET = ITEM_KEY_MANUAL_START+2;
-	public static final int ITEM_KEY_KEY = ITEM_KEY_MANUAL_START+3;
+	public static final int ITEM_KEY_KEY = ITEM_KEY_MANUAL_START+3;	
 	
 	public static final int ITEM_KEY_CAMERA_PREVIEW = 40;
 	
 	public static final int ITEM_KEY_LCD = 60;
 	
 	public static final int ITEM_KEY_AUDIO = 80;
+	
+	public static final int ITEM_KEY_CALL = 100;
+	public static final int ITEM_KEY_FM = 101;
 	
 	public static final int ITEM_KEY_CATEGORY_COUNT = 20;
 	
@@ -869,9 +988,15 @@ public class PcbaTestActivity extends Activity {
 	public static final TestItem ITEM_CAMERA = new TestItem(ITEM_KEY_CAMERA,R.string.item_lable_camera);
 	public static final TestItem ITEM_BLUETOOTH = new TestItem(ITEM_KEY_BLUETOOTH,R.string.item_lable_bluetooth);
 	public static final TestItem ITEM_RTC = new TestItem(ITEM_KEY_RTC,R.string.item_lable_rtc);
+	public static final TestItem ITEM_GPS = new TestItem(ITEM_KEY_GPS,R.string.item_lable_gps);
+	public static final TestItem ITEM_SIM = new TestItem(ITEM_KEY_SIM,R.string.item_lable_sim);
 	public static final TestItem[] AUTO_TEST_ITEMS = {
 		ITEM_MEMORY,ITEM_FLASH,ITEM_WIFI,ITEM_GSENSOR
 		,ITEM_CAMERA,ITEM_BLUETOOTH
+	};
+	public static final TestItem[] AUTO_TEST_ITEMS_TELEPHONY = {
+		ITEM_MEMORY,ITEM_FLASH,ITEM_WIFI,ITEM_GSENSOR
+		,ITEM_CAMERA,ITEM_BLUETOOTH,ITEM_GPS,ITEM_SIM
 	};
 	
 	public static final TestItem ITEM_TFCARD = new TestItem(ITEM_KEY_TFCARD,R.string.item_lable_card);
@@ -880,6 +1005,12 @@ public class PcbaTestActivity extends Activity {
 	public static final TestItem ITEM_KEY = new TestItem(ITEM_KEY_KEY,R.string.item_lable_key);
 	public static final TestItem[] MANUAL_TEST_ITEMS = {
 			ITEM_TFCARD,/*ITEM_USB,*/ITEM_HEADSET,ITEM_KEY
+	};
+	
+	public static final TestItem ITEM_CALL = new TestItem(ITEM_KEY_CALL,R.string.item_lable_call);
+	public static final TestItem ITEM_FM = new TestItem(ITEM_KEY_FM,R.string.fmradio_name);
+	public static final TestItem[] MISC_TEST_ITEMS = {
+			ITEM_CALL,ITEM_FM
 	};
 	
 	public static class TestItem{
@@ -891,7 +1022,7 @@ public class PcbaTestActivity extends Activity {
 		}
 	}
 		
-	public class TestItemView extends FrameLayout{
+	public class TestItemView extends FrameLayout implements ItemViewInterface{
 		private int mTitle;
 		private TextView mSummaryView;
 		private TextView mTitleView;
@@ -917,6 +1048,247 @@ public class PcbaTestActivity extends Activity {
 		
 		public void setSuccess(){
 			mSummaryView.setTextColor(0xFF0000FF);
+		}
+
+		@Override
+		public void setDefault() {
+			
+		}
+	}
+	
+	private static final int AP_CFG_REEB_PRODUCT_INFO_LID = 36;
+	private static final int FLAG_IDX = 105;
+	private static final byte FLAG_VALUE = 105;
+	public static boolean isAutoLaunched(){
+		try{
+			IBinder binder = ServiceManager.getService("NvRAMAgent");
+			NvRAMAgent agent = NvRAMAgent.Stub.asInterface(binder);
+			byte[] buff = null;
+			buff = agent .readFile(AP_CFG_REEB_PRODUCT_INFO_LID);
+			if(buff == null || buff.length <= FLAG_IDX){
+				//cannot get flag, skip auto launch
+				return true;
+			}
+			Log.i(TAG,"isAutoLaunched read flag="+buff[FLAG_IDX]);
+			if(buff[FLAG_IDX] != FLAG_VALUE){
+				return false;
+			}
+			return true;
+		}catch(Exception e){
+			Log.i(TAG,"isAutoLaunched e="+e);
+		}
+		return true;//
+
+	}
+	
+	public static void setAutoLaunched(){
+		try{
+			IBinder binder = ServiceManager.getService("NvRAMAgent");
+			NvRAMAgent agent = NvRAMAgent.Stub.asInterface(binder);
+			byte[] buff = null;
+			buff = agent .readFile(AP_CFG_REEB_PRODUCT_INFO_LID);
+			if(buff == null || buff.length <= FLAG_IDX){
+				//cannot get flag, skip auto launch
+				Log.i(TAG, "setAutoLaunched read fail buff="+buff);
+				return;
+			}
+			Log.i(TAG,"isAutoLaunched read flag="+buff[FLAG_IDX]);
+			if(buff[FLAG_IDX] != FLAG_VALUE){
+				buff[FLAG_IDX] = FLAG_VALUE;
+				int flag = agent.writeFile(AP_CFG_REEB_PRODUCT_INFO_LID,buff);
+				Log.i(TAG, "setAutoLaunched save flag="+flag);
+			}
+		}catch(Exception e){
+			Log.i(TAG,"setAutoLaunched e="+e);
+		}
+	}
+	
+	public interface ItemViewInterface{
+		void setTitle(int resId);
+		void setSummary(String summary);
+		void setError();
+		void setSuccess();
+		void setDefault();
+	}
+	
+	public class MiscItemView extends TextView implements ItemViewInterface{
+		private MiscItemPresenter mTestItemPresenter;
+
+		public MiscItemView(Context context) {
+			super(context);
+			this.setPadding(20, 10, 20, 10);
+			this.setBackgroundResource(R.drawable.btn_default);
+			this.setTextSize(28);
+			this.setOnClickListener(new View.OnClickListener() {				
+				@Override
+				public void onClick(View arg0) {
+					if(mTestItemPresenter == null){
+						return;
+					}
+					mTestItemPresenter.doClickTest();
+				}
+			});
+		}
+		
+		public void setTestItemPresenter(MiscItemPresenter presenter){
+			mTestItemPresenter = presenter;
+		}
+		
+		public void setTitle(int resId){
+			this.setText(resId);
+		}
+		
+		public void setSummary(String summary){
+			this.setText(summary);
+		}
+		
+		public void setDefault(){
+			this.setTextColor(0xFF878787);
+		}
+		
+		public void setError(){
+			this.setTextColor(0xFFFF0000);
+		}
+		
+		public void setSuccess(){
+			this.setTextColor(0xFF0000FF);
+		}
+	}
+	
+	public class GpsTestPresenter extends TestItemPresenter{
+		private GpsController mGpsController;
+		
+		private Handler mUiHandler = new Handler(){
+			@Override
+			public void handleMessage(Message msg){
+				Log.i(TAG, "handleMessage what="+msg.what);
+				switch(msg.what){
+					case GpsController.GPS_MSG_UPDATE:
+						updateGpsText();
+						break;
+					default:
+						break;
+				}
+			}
+		};
+		
+		public String getResult(){
+			return null;
+		}
+		
+		public void doTest(){
+			mGpsController = new GpsController(PcbaTestActivity.this,mUiHandler);
+			mGpsController.start();
+			updateGpsText();
+		}
+		
+		public void doStop(){
+			mGpsController.stop();
+		}
+		
+		private void updateGpsText(){
+			StringBuilder sb = new StringBuilder();
+			if(mGpsController.isGpsConnecting()){
+				sb.append(PcbaTestActivity.this.getString(R.string.gps_connecting));
+				sb.append("|");
+			}
+			sb.append(PcbaTestActivity.this.getString(R.string.satellite_num));
+			int satelliteNum = mGpsController.getSatelliteNumber();
+			sb.append(satelliteNum);
+			/*
+			sb.append("|");			
+			sb.append(PcbaTestActivity.this.getString(R.string.gps_signal));
+			sb.append(mGpsController.getSatelliteSignals());
+			*/
+			//sb.append("|");
+			if(satelliteNum > 4){
+				showSuccess(sb.toString());
+			}else{
+				showHint(sb.toString());
+			}
+		}
+	}
+	
+	public class MiscItemPresenter extends TestItemPresenter{
+		public void doTest(){
+			
+		}
+		
+		public void doClickTest(){
+			
+		}
+		
+		public void onResume(){
+			
+		}
+	}
+	
+	public class CallItemPresenter extends MiscItemPresenter{
+		public void doClickTest(){
+			Intent intent = new Intent(PcbaTestActivity.this, Signal.class);
+			intent.setFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
+			PcbaTestActivity.this.startActivity(intent);
+		}	
+		
+		public void onResume(){
+			int state = Utils.getState(mSharedPreferences, PcbaTestActivity.this.getString(R.string.telephone_name));
+			if(state == 1){
+				mTestItemView.setSuccess();
+			}else if(state == 2){
+				mTestItemView.setError();
+			}else{
+				mTestItemView.setDefault();
+			}
+		}
+	}	
+	
+	public class FmItemPresenter extends MiscItemPresenter{
+		public void doClickTest(){
+			Intent intent = new Intent(PcbaTestActivity.this, FMRadio.class);
+			intent.setFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
+			PcbaTestActivity.this.startActivity(intent);
+		}	
+		
+		public void onResume(){
+			int state = Utils.getState(mSharedPreferences, PcbaTestActivity.this.getString(R.string.fmradio_name));
+			if(state == 1){
+				mTestItemView.setSuccess();
+			}else if(state == 2){
+				mTestItemView.setError();
+			}else{
+				mTestItemView.setDefault();
+			}
+		}
+	}	
+	
+	public class SimTestPresenter extends TestItemPresenter{
+		public void doTest(){
+			boolean sim1Exist = SIMHelper.isSimInserted(0);
+			boolean sim2Exist = true;
+			StringBuilder sb = new StringBuilder();
+			/*
+			TelephonyManager telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+			String sim1State = telephonyManager.getNetworkOperatorGemini(0);
+			if(sim1State != null && sim1State.length() > 0){
+				sim1Exist = true;
+			}*/
+			sb.append(sim1Exist ? "SIM1:ÒÑ¼ì²â" : "SIM1:Î´¼ì²â");
+			if(SIMHelper.isGemini()){
+				/*
+				String sim2State = telephonyManager.getNetworkOperatorGemini(1);
+				if(sim2State == null || sim2State.length() == 0){
+					sim2Exist = false;
+				}*/
+				sim2Exist = SIMHelper.isSimInserted(1);
+				sb.append("|");
+				sb.append(sim2Exist ? "SIM2:ÒÑ¼ì²â" : "SIM2:Î´¼ì²â");
+			}
+			String result = sb.toString();
+			if(sim1Exist && sim2Exist){
+				showSuccess(result);
+			}else{
+				showFail(result);
+			}
 		}
 	}
 }

@@ -63,4 +63,21 @@
     <string name="calibration_button">校准</string>
     
     <string name="sdcard_size_delay_show_hint">已检测到T卡，请等待计算容量！</string>
+    <string name="satellite_num">卫星数:</string>
+    <string name="gps_signal">信号:</string>
+    <string name="gps_connecting">正在连接...</string>
+    <string name="item_lable_gps">GPS测试</string>
+    
+    <string name="misc_test_items">其它测试选项</string>
+    <string name="item_lable_call">电话</string>
+    
+    <string name="FMRadio_notice">选择</string>
+    <string name="HeadSet_hook_message">请确认拨打电话时长按耳机Hook键是否可以挂断?</string>
+    <string name="Success">成功</string>
+    <string name="Failed">失败</string>
+    <string name="headsethook_name">耳机Hook</string>
+    <string name="telephone_name">电 话</string>
+    
+    <string name="fmradio_name">收音机</string>
+        
 </resources>

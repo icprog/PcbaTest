@@ -14,8 +14,13 @@ public class SystemBootCompletedReceiver extends BroadcastReceiver{
 	
 	@Override
 	public void onReceive(Context context, Intent intent){
-		if(isNotAutoLaunched(context)){
+		String action = intent.getAction();
+		if("android.provider.Telephony.SECRET_CODE".equals(action)){
 			startTestActivity(context);
+			return;
+		}
+		if(isNotAutoLaunched(context)){
+			//startTestActivity(context);
 		}
 	}
 	
@@ -25,7 +30,7 @@ public class SystemBootCompletedReceiver extends BroadcastReceiver{
 		intent.putExtra("auto_launch", true);
 		context.startActivity(intent);
 		
-		disableSelf(context);
+		//disableSelf(context);
 	}
 	
 	private void disableSelf(Context context){
@@ -41,9 +46,12 @@ public class SystemBootCompletedReceiver extends BroadcastReceiver{
 			boolean autoLaunched = settings.getBoolean("auto_launched", false);
 			return !autoLaunched;
 		}else{
+			/*
 			SwitchLogo swLogo = new SwitchLogo();
 			byte logoIndex = swLogo.getLogoIndex();
 			return (logoIndex == 0);
+			*/
+			return !PcbaTestActivity.isAutoLaunched();
 		}
 	}
 }

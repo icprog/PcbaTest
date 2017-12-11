@@ -25,7 +25,7 @@
             android:orientation="vertical" 
             android:layout_width="fill_parent" 
             android:layout_height="wrap_content"
-            android:paddingStart="20dp">
+            android:paddingLeft="20dp">
         </LinearLayout>
         <TextView
             android:layout_width="match_parent"
@@ -42,7 +42,27 @@
             android:orientation="vertical" 
             android:layout_width="fill_parent" 
             android:layout_height="wrap_content"
-            android:paddingStart="20dp">
+            android:paddingLeft="20dp">
+        </LinearLayout>
+        <TextView
+            android:id="@+id/misc_test_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#fff5deb2"
+            android:gravity="center"
+            android:text="@string/misc_test_items"
+            android:textColor="#ff000000"
+            android:textStyle="bold"
+            android:textSize="@dimen/test_item_text_size"
+            android:visibility="gone"
+            />  
+        <LinearLayout
+            android:id="@+id/misc_test_container" 
+            android:orientation="horizontal" 
+            android:layout_width="fill_parent" 
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:paddingLeft="20dp">
         </LinearLayout>
     </LinearLayout>
     

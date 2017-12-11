@@ -259,7 +259,7 @@ public class Recorder implements MediaRecorder.OnErrorListener {
             try{
             mRecorder.prepare();
             }catch(Exception e){
-            	
+            	Log.e(TAG, "mRecorder.prepare e="+e);
             }
             mRecorder.start();
             setState(STATE_RECORDING);
