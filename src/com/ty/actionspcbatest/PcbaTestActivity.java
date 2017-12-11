@@ -1263,7 +1263,8 @@ public class PcbaTestActivity extends Activity {
 	
 	public class SimTestPresenter extends TestItemPresenter{
 		public void doTest(){
-			boolean sim1Exist = SIMHelper.isSimInserted(0);
+			SIMHelper simHelper = new SIMHelper(PcbaTestActivity.this);
+			boolean sim1Exist = simHelper.isSimInserted(0);
 			boolean sim2Exist = true;
 			StringBuilder sb = new StringBuilder();
 			/*
@@ -1273,13 +1274,13 @@ public class PcbaTestActivity extends Activity {
 				sim1Exist = true;
 			}*/
 			sb.append(sim1Exist ? "SIM1:ÒÑ¼ì²â" : "SIM1:Î´¼ì²â");
-			if(SIMHelper.isGemini()){
+			if(simHelper.isGemini()){
 				/*
 				String sim2State = telephonyManager.getNetworkOperatorGemini(1);
 				if(sim2State == null || sim2State.length() == 0){
 					sim2Exist = false;
 				}*/
-				sim2Exist = SIMHelper.isSimInserted(1);
+				sim2Exist = simHelper.isSimInserted(1);
 				sb.append("|");
 				sb.append(sim2Exist ? "SIM2:ÒÑ¼ì²â" : "SIM2:Î´¼ì²â");
 			}

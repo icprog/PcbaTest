@@ -3,6 +3,7 @@ package com.ty.actionspcbatest.misc;
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -42,7 +43,10 @@ public class FMRadio extends Activity{
 			}
 		});
 		Intent intent = new Intent("android.intent.action.MAIN");
-		ComponentName componentname = new ComponentName("com.mediatek.FMRadio", "com.mediatek.FMRadio.FMRadioActivity");
+		//ComponentName componentname = new ComponentName("com.mediatek.FMRadio", "com.mediatek.FMRadio.FMRadioActivity");
+		ComponentName componentname = Build.VERSION.SDK_INT == /*Build.VERSION_CODES.N*/24 ? 
+				new ComponentName("com.android.fmradio", "com.android.fmradio.FmMainActivity") :
+					new ComponentName("com.mediatek.FMRadio", "com.mediatek.FMRadio.FMRadioActivity");
 		intent.setComponent(componentname);
 		intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 		startActivity(intent);
