@@ -10,6 +10,7 @@ import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Message;
 import android.util.Log;
 
@@ -26,6 +27,10 @@ public class WifiController {
 	public static final int WIFI_MSG_SCANNING = 2;
 	public static final int WIFI_MSG_NONE_DEVICE = 3;
 	public static final int WIFI_MSG_PASS = 4;
+	public static final int WIFI_MSG_CLOSE = 5;
+
+	private HandlerThread mWorkThread;
+	private Handler mWorkHandler;
 	
 	private BroadcastReceiver mReceiver = new BroadcastReceiver(){
 		@Override
@@ -37,7 +42,8 @@ public class WifiController {
 				boolean enabled = (state == WifiManager.WIFI_STATE_ENABLED);
 				if(enabled){
 					mUiHandler.sendEmptyMessage(WIFI_MSG_SCANNING);
-					startScan();
+					mWorkHandler.sendEmptyMessage(WIFI_MSG_SCANNING);
+					//startScan();
 				}
 			}
 		}
@@ -49,18 +55,44 @@ public class WifiController {
 		
 		mWifiManager = ((WifiManager)context.getSystemService("wifi"));
 		mWifiInfo = mWifiManager.getConnectionInfo();
+
+		mWorkThread = new HandlerThread("wifi_work");
+		mWorkThread.start();
+		mWorkHandler = new Handler(mWorkThread.getLooper()){
+			@Override
+			public void handleMessage(Message msg) {
+				switch(msg.what){
+					case WIFI_MSG_OPENING:
+						wifiEnable(true);
+						break;
+					case WIFI_MSG_CLOSE:
+						wifiEnable(false);
+						break;
+					case WIFI_MSG_SCANNING:
+						startScan();
+						break;
+						/*
+					case MSG_GPS_UPDATE:
+						GpsStatus localGpsStatus = mLocationManager.getGpsStatus(null);
+						updateGpsStatus(0,localGpsStatus);
+						break;*/
+				}
+			}
+		};
 	}
 	
 	public void start(){
 		Log.i(TAG, "start");
 		registerListener();
+		mWorkHandler.sendEmptyMessageDelayed(WIFI_MSG_OPENING,1000);
+		/*
 		if(mWifiManager.isWifiEnabled()){
 			mUiHandler.sendEmptyMessage(WIFI_MSG_SCANNING);
 			startScan();
 		}else{
 			mWifiManager.setWifiEnabled(true);
 			mUiHandler.sendEmptyMessage(WIFI_MSG_OPENING);
-		}
+		}*/
 		mStarted = true;
 	}
 	
@@ -70,7 +102,22 @@ public class WifiController {
 		}
 		mStarted = false;
 		unregisterListener();
-		mWifiManager.setWifiEnabled(false);
+		mWorkHandler.sendEmptyMessage(WIFI_MSG_CLOSE);
+		//mWifiManager.setWifiEnabled(false);
+	}
+
+	private void wifiEnable(boolean enable){
+		if(!enable){
+			mWifiManager.setWifiEnabled(false);
+			return;
+		}
+		if(mWifiManager.isWifiEnabled()){
+			mUiHandler.sendEmptyMessage(WIFI_MSG_SCANNING);
+			startScan();
+		}else{
+			mWifiManager.setWifiEnabled(true);
+			mUiHandler.sendEmptyMessage(WIFI_MSG_OPENING);
+		}
 	}
 	
 	private void registerListener(){
@@ -87,9 +134,14 @@ public class WifiController {
 		if(!mScanning){
 			mScanning = true;
 			mWifiManager.startScan();
+			/*
+			try{
+				Thread.sleep(1000*2);
+			}catch(Exception e){
+			}*/
 		}
-		new Thread(){
-			public void run(){
+		//new Thread(){
+			//public void run(){
 				int retryCount = 15;
 				List<ScanResult> listResult = null;
 				while(retryCount > 0){
@@ -112,7 +164,7 @@ public class WifiController {
 				}
 				
 				WifiController.this.stop();
-			}
-		}.start();
+			//}
+		//}.start();
 	}
 }

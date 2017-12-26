@@ -37,6 +37,7 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.ServiceManager;
 import android.os.StatFs;
+import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.Vibrator;
 import android.os.storage.StorageManager;
@@ -52,6 +53,7 @@ import android.view.MenuItem;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.widget.Chronometer;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -95,7 +97,7 @@ public class PcbaTestActivity extends Activity {
 		LinearLayout autoTestContainer = (LinearLayout)findViewById(R.id.auto_test_container);
 		TestItem[] autoItems = Config.IS_TELEPHONY_SUPPORT ? AUTO_TEST_ITEMS_TELEPHONY : AUTO_TEST_ITEMS;
 		for(int i=0;i<autoItems.length;i++){
-			TestItemView child = new TestItemView(this);
+			TestItemView child = new TestItemView(this,(autoItems[i].mKey == this.ITEM_KEY_GPS));
 			child.setTitle(autoItems[i].mTitleId);
 			LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1,-2);
 			autoTestContainer.addView(child, params);
@@ -193,13 +195,17 @@ public class PcbaTestActivity extends Activity {
 	
 	@Override
 	public boolean onKeyDown(int keycode, KeyEvent keyevent){
-		mKeyTestPresenter.onKeyDown(keycode, keyevent);
+		if(mKeyTestPresenter != null){
+			mKeyTestPresenter.onKeyDown(keycode, keyevent);
+		}
 		return super.onKeyDown(keycode, keyevent);
 	}
 	
 	@Override
 	public boolean onKeyUp(int keycode, KeyEvent keyevent){
-		mKeyTestPresenter.onKeyUp(keycode, keyevent);
+		if(mKeyTestPresenter != null){
+			mKeyTestPresenter.onKeyUp(keycode, keyevent);
+		}
 		return super.onKeyUp(keycode, keyevent);
 	}
 		
@@ -480,7 +486,7 @@ public class PcbaTestActivity extends Activity {
 				long bc = localStatFs.getBlockCount();
 				long bz = localStatFs.getBlockSize();
 				Log.i(TAG, "mExtCardPath="+mExtCardPath+",bc="+bc+",bz="+bz);
-				sizeGb = (bc*bz/1024L/1024L/1024L);
+				sizeGb = bc*bz;
 			}
 			if(sizeGb > 0f){
 				String size = Formatter.formatFileSize(PcbaTestActivity.this, sizeGb);
@@ -1004,7 +1010,7 @@ public class PcbaTestActivity extends Activity {
 	public static final TestItem ITEM_HEADSET = new TestItem(ITEM_KEY_HEADSET,R.string.item_lable_headset);
 	public static final TestItem ITEM_KEY = new TestItem(ITEM_KEY_KEY,R.string.item_lable_key);
 	public static final TestItem[] MANUAL_TEST_ITEMS = {
-			ITEM_TFCARD,/*ITEM_USB,*/ITEM_HEADSET,ITEM_KEY
+			ITEM_TFCARD,ITEM_HEADSET,ITEM_KEY
 	};
 	
 	public static final TestItem ITEM_CALL = new TestItem(ITEM_KEY_CALL,R.string.item_lable_call);
@@ -1026,12 +1032,22 @@ public class PcbaTestActivity extends Activity {
 		private int mTitle;
 		private TextView mSummaryView;
 		private TextView mTitleView;
+		public Chronometer mChronometer;
 
 		public TestItemView(Context context) {
+			this(context,false);
+		}
+		
+		public TestItemView(Context context,boolean showTimer) {
 			super(context);
-			mLayoutInflater.inflate(R.layout.test_item_view, this, true);
+			if(showTimer){
+				mLayoutInflater.inflate(R.layout.test_item_view_with_timer, this, true);
+			}else{
+				mLayoutInflater.inflate(R.layout.test_item_view, this, true);
+			}
 			mTitleView = (TextView)findViewById(R.id.item_title);
 			mSummaryView = (TextView)findViewById(R.id.item_summary);
+			mChronometer = (Chronometer)findViewById(R.id.chronometer);
 		}
 		
 		public void setTitle(int resId){
@@ -1053,6 +1069,10 @@ public class PcbaTestActivity extends Activity {
 		@Override
 		public void setDefault() {
 			
+		}
+		
+		public Chronometer getChronometer(){
+			return mChronometer;
 		}
 	}
 	
@@ -1109,6 +1129,7 @@ public class PcbaTestActivity extends Activity {
 		void setError();
 		void setSuccess();
 		void setDefault();
+		Chronometer getChronometer();
 	}
 	
 	public class MiscItemView extends TextView implements ItemViewInterface{
@@ -1153,10 +1174,15 @@ public class PcbaTestActivity extends Activity {
 		public void setSuccess(){
 			this.setTextColor(0xFF0000FF);
 		}
+		
+		public Chronometer getChronometer(){
+			return null;
+		}
 	}
 	
 	public class GpsTestPresenter extends TestItemPresenter{
 		private GpsController mGpsController;
+		private Chronometer mChronometer;
 		
 		private Handler mUiHandler = new Handler(){
 			@Override
@@ -1165,6 +1191,9 @@ public class PcbaTestActivity extends Activity {
 				switch(msg.what){
 					case GpsController.GPS_MSG_UPDATE:
 						updateGpsText();
+						break;
+					case GpsController.GPS_MSG_UPDATE_DBG:
+						Toast.makeText(PcbaTestActivity.this, (String)msg.obj, Toast.LENGTH_SHORT).show();
 						break;
 					default:
 						break;
@@ -1177,6 +1206,12 @@ public class PcbaTestActivity extends Activity {
 		}
 		
 		public void doTest(){
+			mChronometer = this.mTestItemView.getChronometer();
+			if(mChronometer != null){
+				mChronometer.setBase(SystemClock.elapsedRealtime());
+				mChronometer.start();
+			}
+			
 			mGpsController = new GpsController(PcbaTestActivity.this,mUiHandler);
 			mGpsController.start();
 			updateGpsText();
@@ -1184,6 +1219,9 @@ public class PcbaTestActivity extends Activity {
 		
 		public void doStop(){
 			mGpsController.stop();
+			if(mChronometer != null){
+				mChronometer.stop();
+			}
 		}
 		
 		private void updateGpsText(){
@@ -1195,13 +1233,17 @@ public class PcbaTestActivity extends Activity {
 			sb.append(PcbaTestActivity.this.getString(R.string.satellite_num));
 			int satelliteNum = mGpsController.getSatelliteNumber();
 			sb.append(satelliteNum);
+			if(satelliteNum > 0){
+				sb.append("\nÐÅºÅÇ¿¶È£º");
+				sb.append(mGpsController.getSatelliteSignals());
+			}
 			/*
 			sb.append("|");			
 			sb.append(PcbaTestActivity.this.getString(R.string.gps_signal));
 			sb.append(mGpsController.getSatelliteSignals());
 			*/
 			//sb.append("|");
-			if(satelliteNum > 4){
+			if(satelliteNum > 0){
 				showSuccess(sb.toString());
 			}else{
 				showHint(sb.toString());
