@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    
+    <integer name="main_panel_left_percent">50</integer>
+    <integer name="main_panel_right_percent">50</integer>
+    
+    <integer name="main_panel_camera_percent">50</integer>
+    <integer name="main_panel_lcm_percent">25</integer>
+    <integer name="main_panel_player_percent">25</integer>
+    
+</resources>

@@ -138,4 +138,26 @@ public class SIMHelper {
             return false;
         }
     }
+    
+    private static ITelephony sITelephony;
+    private static ITelephonyRegistry mRegistry = ITelephonyRegistry.Stub.asInterface(ServiceManager.getService("telephony.registry"));
+    private static ITelephonyRegistry mRegistry2 = ITelephonyRegistry.Stub.asInterface(ServiceManager.getService("telephony.registry2"));
+    
+    public static ITelephony getITelephony() {
+        return sITelephony = ITelephony.Stub.asInterface(ServiceManager.getService(Context.TELEPHONY_SERVICE));
+    }
+    
+    public static void listen(PhoneStateListener listener, int events, int slotId) {
+    	Log.i("hcj.SIM", "listen listener="+listener);
+        try {
+            Boolean notifyNow = (getITelephony() != null);
+            if (PhoneConstants.GEMINI_SIM_1 == slotId) {
+                mRegistry.listen("SystemUI SIMHelper", listener.getCallback(), events, notifyNow);
+            } else if(PhoneConstants.GEMINI_SIM_2 == slotId) {
+                mRegistry2.listen("SystemUI SIMHelper", listener.getCallback(), events, notifyNow);
+            }
+        } catch (Exception e) {
+            Log.i("hcj.SIM", "listen e="+e);
+        }
+    }
 }

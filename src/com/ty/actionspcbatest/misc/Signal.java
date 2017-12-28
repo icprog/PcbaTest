@@ -54,16 +54,21 @@ public class Signal extends Activity
     }
   }
 
-  protected void onCreate(Bundle paramBundle)
+  protected void onCreate(Bundle bundle)
   {
-    super.onCreate(paramBundle);
+    super.onCreate(bundle);
     setContentView(R.layout.signal);
     this.mSp = getSharedPreferences("FactoryMode", 0);
     this.mBtOk = (Button)findViewById(R.id.signal_bt_ok);
     this.mBtOk.setOnClickListener(this);
     this.mBtFailed = (Button)findViewById(R.id.signal_bt_failed);
     this.mBtFailed.setOnClickListener(this);
-    Uri localUri = Uri.fromParts("tel", "112", null);
+    Intent intent = this.getIntent();
+    String number = intent.getStringExtra("number");
+    if(number == null || number.length() < 1){
+    	number = "112";
+    }
+    Uri localUri = Uri.fromParts("tel", number, null);
     Intent localIntent = new Intent("android.intent.action.CALL_PRIVILEGED", localUri);
     startActivityForResult(localIntent, 5);
   }

@@ -2,6 +2,8 @@ package com.ty.actionspcbatest;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -10,7 +12,7 @@ import com.ty.actionspcbatest.misc.FMRadio;
 import com.ty.actionspcbatest.misc.SIMHelper;
 import com.ty.actionspcbatest.misc.Signal;
 import com.ty.actionspcbatest.misc.Utils;
-
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -19,6 +21,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.res.Resources;
 import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
 import android.hardware.Sensor;
@@ -28,6 +31,7 @@ import android.hardware.SensorManager;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -42,6 +46,9 @@ import android.os.SystemProperties;
 import android.os.Vibrator;
 import android.os.storage.StorageManager;
 import android.provider.Settings;
+import android.telephony.PhoneStateListener;
+import android.telephony.ServiceState;
+import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
 import android.text.format.Formatter;
 import android.util.AttributeSet;
@@ -155,12 +162,32 @@ public class PcbaTestActivity extends Activity {
 	@Override
 	public void onResume(){
 		super.onResume();
+		/*
 		if(mMiscPresenters != null){
-		int presenterSize = mMiscPresenters.size();
-		for(int i=0;i<presenterSize;i++){
-			MiscItemPresenter presenter = mMiscPresenters.get(i);
-			presenter.onResume();
+			int presenterSize = mMiscPresenters.size();
+			for(int i=0;i<presenterSize;i++){
+				MiscItemPresenter presenter = mMiscPresenters.get(i);
+				presenter.onResume();
+			}
+		}*/
+		if(mItemPresenters != null){
+			int presenterSize = mItemPresenters.size();
+			for(int i=0;i<presenterSize;i++){
+				TestItemPresenter presenter = mItemPresenters.get(i);
+				presenter.onResume();
+			}
 		}
+	}
+
+	@Override
+	public void onPause(){
+		super.onPause();
+		if(mItemPresenters != null){
+			int presenterSize = mItemPresenters.size();
+			for(int i=0;i<presenterSize;i++){
+				TestItemPresenter presenter = mItemPresenters.get(i);
+				presenter.onPause();
+			}
 		}
 	}
 	
@@ -227,7 +254,24 @@ public class PcbaTestActivity extends Activity {
 						showFail("FAIL(Unable to find device)");						
 						break;
 					case WifiController.WIFI_MSG_PASS:
-						showSuccess("PASS(Search to "+msg.obj+")");
+						List<ScanResult> listResult = (List<ScanResult>)msg.obj;
+						if(listResult == null){
+							break;
+						}
+						Log.i("hcj", "act listResult="+listResult.size());
+						StringBuilder sb = new StringBuilder();
+						sb.append("OK|WIFIÊý:");
+						sb.append(listResult.size());
+						sb.append("|ÐÅºÅÇ¿¶È:\n[");
+						for(int i=0;i<listResult.size();i++){
+							if(i > 0){
+								sb.append(",");
+							}
+							int level = WifiManager.calculateSignalLevel(listResult.get(i).level, 8);
+							sb.append(level);
+						}
+						sb.append("]");
+						showSuccess(sb.toString());
 						break;
 					default:
 						break;
@@ -267,7 +311,7 @@ public class PcbaTestActivity extends Activity {
 						showFail("FAIL(Unable to find device)");						
 						break;
 					case BluetoothController.BT_MSG_PASS:
-						showSuccess("PASS(Search to "+msg.obj+")");
+						showSuccess("OK(ËÑË÷µ½ "+msg.obj+")");
 						break;
 					case BluetoothController.BT_MSG_UNSUPPORT:
 						showFail("FAIL(Unsupport)");
@@ -309,7 +353,7 @@ public class PcbaTestActivity extends Activity {
 					float x = event.values[SensorManager.DATA_X];
 					float y = event.values[SensorManager.DATA_Y];
 					float z = event.values[SensorManager.DATA_Z];
-					showSuccess("PASS("+x+","+y+","+z+")");
+					showSuccess("OK("+x+","+y+","+z+")");
 					//showResult("PASS("+")");
 				}
 		    };
@@ -337,7 +381,7 @@ public class PcbaTestActivity extends Activity {
 			}else if(sizeMb <= 2048f){
 				resultSizeMb = 2048;
 			}
-			String result = "PASS("+resultSizeMb+"MB)";
+			String result = "OK("+resultSizeMb+"MB)";
 			showSuccess(result);
 		}
 	}
@@ -365,7 +409,7 @@ public class PcbaTestActivity extends Activity {
 			
 			long totalSize = totalBlocks*512L;
 			float sizeGb = Math.round(totalSize/1024F/1024F/1024F);
-			String resultStr = "PASS("+sizeGb+"GB)";
+			String resultStr = "OK("+sizeGb+"GB)";
 			showSuccess(resultStr);
 		}
 	}
@@ -490,7 +534,7 @@ public class PcbaTestActivity extends Activity {
 			}
 			if(sizeGb > 0f){
 				String size = Formatter.formatFileSize(PcbaTestActivity.this, sizeGb);
-				showSuccess("PASS("+size+")");				
+				showSuccess("OK("+size+")");				
 			}else{
 				Toast.makeText(PcbaTestActivity.this, PcbaTestActivity.this.getString(R.string.sdcard_size_delay_show_hint), Toast.LENGTH_SHORT).show();;
 				mHandler.postDelayed(mDelayTestRunnable, 4000);
@@ -608,7 +652,7 @@ public class PcbaTestActivity extends Activity {
 				mSuccess = true;
 			}
 			String status = pluged ? "Connected" : "Plug out";
-			showSuccess("PASS("+status+")");
+			showSuccess("OK("+status+")");
 			return pluged;
 		}
 	}
@@ -619,8 +663,34 @@ public class PcbaTestActivity extends Activity {
 		private SurfaceHolder mHolder;
 		private int mCurrentIdx;
 		private static final int SWITCH_CAMERA_PERIOD = 4*1000;
+		private TextView mCameraText;
+
+		public void onPause(){
+			Log.i(TAG,"CameraTestPresenter onPause");
+			doStop();
+		}
+
+		public void onResume(){
+			Log.i(TAG,"CameraTestPresenter onResume");
+			//initPreview();
+			if(mHolder != null){
+				openCamera();
+				if(mCamera != null){
+					try{
+						mCamera.setPreviewDisplay(mHolder);
+						startPreview();
+					}catch(Exception e){
+						Log.i(TAG, "setPreviewDisplay e="+e);
+						showFail("FAIL(fail to show preview)");
+						closeCamera();
+					}
+				}	
+			}
+		}
 		
 		public void doTest(){
+			mCameraText = (TextView)findViewById(R.id.camera_text);
+			
 			showHint(getHint());
 			initPreview();
 		}
@@ -658,13 +728,14 @@ public class PcbaTestActivity extends Activity {
 				return;
 			}
 			mCamera.startPreview();
-			showSuccess("PASS");
+			showSuccess("OK");
 			
 			int num = Camera.getNumberOfCameras();
 			if(num > 1){
 				//mCurrentIdx = 0;
 				mHandler.postDelayed(switchCameraRunnable, SWITCH_CAMERA_PERIOD);
 			}
+			mCameraText.setText((mCurrentIdx == 0) ? "ºóÉã" : "Ç°Éã");
 		}
 		
 		private void initPreview(){
@@ -720,6 +791,7 @@ public class PcbaTestActivity extends Activity {
 					closeCamera();
 				}
 				mCamera.startPreview();
+				mCameraText.setText((mCurrentIdx == 0) ? "ºóÉã" : "Ç°Éã");
 				
 				if(num > 1){
 					mHandler.postDelayed(switchCameraRunnable, SWITCH_CAMERA_PERIOD);
@@ -905,6 +977,10 @@ public class PcbaTestActivity extends Activity {
 			return new GpsTestPresenter();
 		}else if(key == ITEM_KEY_CALL){
 			return new CallItemPresenter();
+		}else if(key == ITEM_KEY_CALL_UN){
+			return new UnCallItemPresenter();
+		}else if(key == ITEM_KEY_CALL_CM){
+			return new CmCallItemPresenter();
 		}else if(key == ITEM_KEY_SIM){
 			return new SimTestPresenter();
 		}else if(key == ITEM_KEY_FM){
@@ -957,6 +1033,14 @@ public class PcbaTestActivity extends Activity {
 		public void doStop(){
 			
 		}
+
+		public void onPause(){
+			
+		}
+
+		public void onResume(){
+			
+		}
 	}
 	
 	public static final int ITEM_KEY_AUTO_START = 0;
@@ -984,6 +1068,9 @@ public class PcbaTestActivity extends Activity {
 	
 	public static final int ITEM_KEY_CALL = 100;
 	public static final int ITEM_KEY_FM = 101;
+	
+	public static final int ITEM_KEY_CALL_UN = 102;
+	public static final int ITEM_KEY_CALL_CM = 103;
 	
 	public static final int ITEM_KEY_CATEGORY_COUNT = 20;
 	
@@ -1014,9 +1101,11 @@ public class PcbaTestActivity extends Activity {
 	};
 	
 	public static final TestItem ITEM_CALL = new TestItem(ITEM_KEY_CALL,R.string.item_lable_call);
+	public static final TestItem ITEM_CALL_UN = new TestItem(ITEM_KEY_CALL_UN,R.string.item_lable_call_un);
+	public static final TestItem ITEM_CALL_CM = new TestItem(ITEM_KEY_CALL_CM,R.string.item_lable_call_cm);
 	public static final TestItem ITEM_FM = new TestItem(ITEM_KEY_FM,R.string.fmradio_name);
 	public static final TestItem[] MISC_TEST_ITEMS = {
-			ITEM_CALL,ITEM_FM
+			ITEM_CALL_UN,ITEM_CALL_CM,ITEM_FM
 	};
 	
 	public static class TestItem{
@@ -1137,9 +1226,10 @@ public class PcbaTestActivity extends Activity {
 
 		public MiscItemView(Context context) {
 			super(context);
+			Resources res = context.getResources();
 			this.setPadding(20, 10, 20, 10);
 			this.setBackgroundResource(R.drawable.btn_default);
-			this.setTextSize(28);
+			this.setTextSize(/*res.getDimensionPixelSize(R.dimen.test_item_text_size)*/20);
 			this.setOnClickListener(new View.OnClickListener() {				
 				@Override
 				public void onClick(View arg0) {
@@ -1190,7 +1280,8 @@ public class PcbaTestActivity extends Activity {
 				Log.i(TAG, "handleMessage what="+msg.what);
 				switch(msg.what){
 					case GpsController.GPS_MSG_UPDATE:
-						updateGpsText();
+						List<Float> signals = (List<Float>)msg.obj;
+						updateGpsText(signals);
 						break;
 					case GpsController.GPS_MSG_UPDATE_DBG:
 						Toast.makeText(PcbaTestActivity.this, (String)msg.obj, Toast.LENGTH_SHORT).show();
@@ -1214,7 +1305,7 @@ public class PcbaTestActivity extends Activity {
 			
 			mGpsController = new GpsController(PcbaTestActivity.this,mUiHandler);
 			mGpsController.start();
-			updateGpsText();
+			updateGpsText(null);
 		}
 		
 		public void doStop(){
@@ -1224,18 +1315,20 @@ public class PcbaTestActivity extends Activity {
 			}
 		}
 		
-		private void updateGpsText(){
+		private void updateGpsText(List<Float> signals){
 			StringBuilder sb = new StringBuilder();
 			if(mGpsController.isGpsConnecting()){
 				sb.append(PcbaTestActivity.this.getString(R.string.gps_connecting));
 				sb.append("|");
 			}
 			sb.append(PcbaTestActivity.this.getString(R.string.satellite_num));
-			int satelliteNum = mGpsController.getSatelliteNumber();
+			//int satelliteNum = mGpsController.getSatelliteNumber();
+			int satelliteNum = signals != null ? signals.size() : 0;
 			sb.append(satelliteNum);
 			if(satelliteNum > 0){
 				sb.append("\nÐÅºÅÇ¿¶È£º");
-				sb.append(mGpsController.getSatelliteSignals());
+				//sb.append(mGpsController.getSatelliteSignals());
+				sb.append(signals.toString());
 			}
 			/*
 			sb.append("|");			
@@ -1284,6 +1377,24 @@ public class PcbaTestActivity extends Activity {
 		}
 	}	
 	
+	public class UnCallItemPresenter extends CallItemPresenter{
+		public void doClickTest(){
+			Intent intent = new Intent(PcbaTestActivity.this, Signal.class);
+			intent.setFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
+			intent.putExtra("number", "10010");
+			PcbaTestActivity.this.startActivity(intent);
+		}
+	}
+	
+	public class CmCallItemPresenter extends CallItemPresenter{
+		public void doClickTest(){
+			Intent intent = new Intent(PcbaTestActivity.this, Signal.class);
+			intent.setFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
+			intent.putExtra("number", "10086");
+			PcbaTestActivity.this.startActivity(intent);
+		}
+	}
+	
 	public class FmItemPresenter extends MiscItemPresenter{
 		public void doClickTest(){
 			Intent intent = new Intent(PcbaTestActivity.this, FMRadio.class);
@@ -1304,30 +1415,66 @@ public class PcbaTestActivity extends Activity {
 	}	
 	
 	public class SimTestPresenter extends TestItemPresenter{
+		private boolean mSim1Exist;
+		private boolean mSim2Exist;
+		private SIMHelper mSimHelper;
+		private int[] mSimLevels;
+		private MyPhoneStateListener[] mMyPhoneStateListener;
+		private int mSlotNum;
+		
+		private class MyPhoneStateListener extends PhoneStateListener{
+			@SuppressLint("NewApi")
+			@Override
+			public void onSignalStrengthsChanged(SignalStrength signalStrength) { 
+				Log.i("hcj.SIM","onSignalStrengthsChanged signalStrength="+signalStrength);
+				if(signalStrength == null){
+					return;
+				}
+				final int slotId = signalStrength.getMySimId();
+				mSimLevels[slotId] = signalStrength.getLevel();
+				updateSimStatus();
+			}
+			
+			@Override
+	        public void onServiceStateChanged(ServiceState state) {
+				int slotId = Arrays.asList(mMyPhoneStateListener).indexOf(this);
+				int srvState = state.getVoiceRegState();
+				if(srvState == ServiceState.STATE_POWER_OFF){
+					mSimLevels[slotId] = 0;
+				}
+			}
+		};
+		
 		public void doTest(){
-			SIMHelper simHelper = new SIMHelper(PcbaTestActivity.this);
-			boolean sim1Exist = simHelper.isSimInserted(0);
-			boolean sim2Exist = true;
+			mSimHelper = new SIMHelper(PcbaTestActivity.this);
+			mSlotNum = mSimHelper.isGemini() ? 2 : 1;
+			mSimLevels = new int[mSlotNum];
+			
+			mMyPhoneStateListener = new MyPhoneStateListener[mSlotNum];
+			for(int i=0;i<mSlotNum;i++){
+				mMyPhoneStateListener[i] = new MyPhoneStateListener();
+				SIMHelper.listen(mMyPhoneStateListener[i],
+						PhoneStateListener.LISTEN_SERVICE_STATE
+						|PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
+						|PhoneStateListener.LISTEN_DATA_CONNECTION_STATE,i);
+			}
+			
+			boolean sim1Exist = mSimHelper.isSimInserted(0);
+			boolean sim2Exist = mSimHelper.isSimInserted(1);
+			mSim1Exist = sim1Exist;
+			mSim2Exist = mSlotNum > 1 ? sim2Exist : true;
+			updateSimStatus();
+		}
+		
+		private void updateSimStatus(){
 			StringBuilder sb = new StringBuilder();
-			/*
-			TelephonyManager telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
-			String sim1State = telephonyManager.getNetworkOperatorGemini(0);
-			if(sim1State != null && sim1State.length() > 0){
-				sim1Exist = true;
-			}*/
-			sb.append(sim1Exist ? "SIM1:ÒÑ¼ì²â" : "SIM1:Î´¼ì²â");
-			if(simHelper.isGemini()){
-				/*
-				String sim2State = telephonyManager.getNetworkOperatorGemini(1);
-				if(sim2State == null || sim2State.length() == 0){
-					sim2Exist = false;
-				}*/
-				sim2Exist = simHelper.isSimInserted(1);
-				sb.append("|");
-				sb.append(sim2Exist ? "SIM2:ÒÑ¼ì²â" : "SIM2:Î´¼ì²â");
+			sb.append(mSim1Exist ? "SIM1:ÒÑ¼ì²â(ÐÅºÅ:"+mSimLevels[0]+")" : "SIM1:Î´¼ì²â");
+			if(mSimHelper.isGemini()){
+				sb.append("\n");
+				sb.append(mSim2Exist ? "SIM2:ÒÑ¼ì²â(ÐÅºÅ:"+mSimLevels[1]+")" : "SIM2:Î´¼ì²â");
 			}
 			String result = sb.toString();
-			if(sim1Exist && sim2Exist){
+			if(mSim1Exist && mSim2Exist){
 				showSuccess(result);
 			}else{
 				showFail(result);

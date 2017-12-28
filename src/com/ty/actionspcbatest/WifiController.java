@@ -45,6 +45,8 @@ public class WifiController {
 					mWorkHandler.sendEmptyMessage(WIFI_MSG_SCANNING);
 					//startScan();
 				}
+			}else if(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION.equals(action)){
+				parseScanResult();
 			}
 		}
 	};
@@ -102,6 +104,7 @@ public class WifiController {
 		}
 		mStarted = false;
 		unregisterListener();
+		mWorkHandler.removeMessages(WIFI_MSG_SCANNING);
 		mWorkHandler.sendEmptyMessage(WIFI_MSG_CLOSE);
 		//mWifiManager.setWifiEnabled(false);
 	}
@@ -123,6 +126,7 @@ public class WifiController {
 	private void registerListener(){
 		IntentFilter filter = new IntentFilter();
 		filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
+		filter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
 		mContext.registerReceiver(mReceiver, filter);
 	}
 	
@@ -131,40 +135,27 @@ public class WifiController {
 	}
 	
 	private void startScan(){
+		/*
 		if(!mScanning){
 			mScanning = true;
 			mWifiManager.startScan();
-			/*
-			try{
-				Thread.sleep(1000*2);
-			}catch(Exception e){
-			}*/
 		}
-		//new Thread(){
-			//public void run(){
-				int retryCount = 15;
-				List<ScanResult> listResult = null;
-				while(retryCount > 0){
-					listResult = mWifiManager.getScanResults();
-					if(listResult == null || listResult.size() < 1){
-						retryCount--;
-						try{
-							Thread.sleep(1000);
-						}catch(Exception e){
-						}
-					}else{
-						break;
-					}
-				}
-				if(listResult == null || listResult.size() < 1){
-					mUiHandler.sendEmptyMessage(WIFI_MSG_NONE_DEVICE);
-				}else{
-					Message msg = mUiHandler.obtainMessage(WIFI_MSG_PASS, listResult.get(0).SSID);
-					mUiHandler.sendMessage(msg);
-				}
-				
-				WifiController.this.stop();
-			//}
-		//}.start();
+		Log.i(TAG, "startScan");
+		*/
+		mWifiManager.startScan();
+		//WifiController.this.stop();
+	}
+	
+	private void parseScanResult(){
+		Log.i(TAG, "parseScanResult");
+		List<ScanResult> listResult = null;
+		listResult = mWifiManager.getScanResults();
+		if(listResult == null || listResult.size() < 1){
+			//mUiHandler.sendEmptyMessage(WIFI_MSG_NONE_DEVICE);
+		}else{
+			Message msg = mUiHandler.obtainMessage(WIFI_MSG_PASS, listResult);
+			mUiHandler.sendMessage(msg);
+		}
+		mWorkHandler.sendEmptyMessageDelayed(WIFI_MSG_SCANNING,1000);
 	}
 }

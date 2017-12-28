@@ -12,22 +12,22 @@
     <string name="stop_record">停止录音</string>
     <string name="test_item_name">测试项名称</string>
     <string name="test_item_result">测试项结果</string>
-    <string name="item_lable_ddr">内存测试</string>
-    <string name="item_lable_flash">闪存测试</string>
+    <string name="item_lable_ddr">内存</string>
+    <string name="item_lable_flash">闪存</string>
     <string name="item_lable_uhost">U盘测试</string>
-    <string name="item_lable_card">插卡测试</string>
-    <string name="item_lable_wifi">WIFI测试</string>
-    <string name="item_lable_bluetooth">蓝牙测试</string>
+    <string name="item_lable_card">SD卡</string>
+    <string name="item_lable_wifi">WIFI</string>
+    <string name="item_lable_bluetooth">蓝牙</string>
     <string name="item_lable_rtc">RTC时间测试</string>
-    <string name="item_lable_sim">SIM卡测试</string>
+    <string name="item_lable_sim">SIM卡</string>
     <string name="item_lable_phone">拨打电话</string>
-    <string name="item_lable_gsensor">重力传感器</string>
+    <string name="item_lable_gsensor">重力</string>
     <string name="item_lable_usb">USB连接</string>
     <string name="item_lable_hdmi">HDMI连接</string>
-    <string name="item_lable_headset">耳机连接</string>
+    <string name="item_lable_headset">耳机</string>
     <string name="item_lable_voice">录放音测试</string>
-    <string name="item_lable_key">音量键测试</string>
-    <string name="item_lable_camera">摄像头连接</string>
+    <string name="item_lable_key">音量键</string>
+    <string name="item_lable_camera">摄像头</string>
     <string name="item_lable_lcd">LCD测试</string>
     <string name="item_lable_tp">触屏测试</string>
     <string name="item_lable_backlight">背光测试</string>
@@ -66,7 +66,7 @@
     <string name="satellite_num">卫星数:</string>
     <string name="gps_signal">信号:</string>
     <string name="gps_connecting">正在连接...</string>
-    <string name="item_lable_gps">GPS测试</string>
+    <string name="item_lable_gps">GPS</string>
     
     <string name="misc_test_items">其它测试选项</string>
     <string name="item_lable_call">电话</string>
@@ -79,5 +79,8 @@
     <string name="telephone_name">电 话</string>
     
     <string name="fmradio_name">收音机</string>
+    
+    <string name="item_lable_call_un">拨联通</string>
+    <string name="item_lable_call_cm">拨移动</string>
         
 </resources>

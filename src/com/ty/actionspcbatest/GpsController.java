@@ -233,7 +233,8 @@ public class GpsController {
 			return;
 		}
 		
-		mSatelliteSignal.clear();
+		//mSatelliteSignal.clear();
+		List<Float> signals = new ArrayList<Float>();
 		Iterator<GpsSatellite> iterator = gpsStatus.getSatellites().iterator();
 		while(iterator.hasNext()){
 			float f = ((GpsSatellite)iterator.next()).getSnr();
@@ -242,12 +243,14 @@ public class GpsController {
 				 continue;
 			 }
 			 Float localFloat = Float.valueOf(f);
-			 mSatelliteSignal.add(localFloat);
+			 //mSatelliteSignal.add(localFloat);
+			 signals.add(localFloat);
 		}
-		mSatelliteNum = mSatelliteSignal.size();
+		//mSatelliteNum = mSatelliteSignal.size();
+		mSatelliteNum = signals.size();
 		android.util.Log.i("hcj", "gpsStatus mSatelliteNum="
 				+mSatelliteNum+",signales="+getSatelliteSignals());
-		mUiHandler.sendEmptyMessage(GPS_MSG_UPDATE);
+		mUiHandler.sendMessage(mUiHandler.obtainMessage(GPS_MSG_UPDATE, signals));
 		//mUiHandler.sendMessage(mUiHandler.obtainMessage(GPS_MSG_UPDATE_DBG, "gpsStatus mSatelliteNum="
 				//+mSatelliteNum+",signales="+getSatelliteSignals()));
 	}

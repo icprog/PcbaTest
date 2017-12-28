@@ -8,7 +8,7 @@
     <ScrollView
 	    android:layout_width="0dp"   
 	    android:layout_height="fill_parent"
-	    android:layout_weight="1" 
+	    android:layout_weight="@integer/main_panel_left_percent" 
 	    android:scrollbars="vertical"    
 	    android:fadingEdge="vertical">
 	    <LinearLayout 
@@ -31,7 +31,7 @@
 	            android:orientation="vertical" 
 	            android:layout_width="fill_parent" 
 	            android:layout_height="wrap_content"
-	            android:paddingLeft="20dp">
+	            android:paddingLeft="4dp">
 	        </LinearLayout>
 	        <TextView
 	            android:layout_width="match_parent"
@@ -48,7 +48,7 @@
 	            android:orientation="vertical" 
 	            android:layout_width="fill_parent" 
 	            android:layout_height="wrap_content"
-	            android:paddingLeft="20dp">
+	            android:paddingLeft="4dp">
 	        </LinearLayout>
 	        <TextView
 	            android:id="@+id/misc_test_title"
@@ -68,7 +68,7 @@
 	            android:layout_width="fill_parent" 
 	            android:layout_height="wrap_content"
 	            android:visibility="gone"
-	            android:paddingLeft="20dp">
+	            android:paddingLeft="4dp">
 	        </LinearLayout>
 	    </LinearLayout>
     </ScrollView> 
@@ -76,22 +76,32 @@
         android:orientation="vertical"
         android:layout_width="0dp" 
         android:layout_height="fill_parent"
-        android:layout_weight="1">        
+        android:layout_weight="@integer/main_panel_right_percent">        
         <FrameLayout
             android:id="@+id/camera_preview_container" 
             android:layout_width="fill_parent" 
             android:layout_height="0dp"
-            android:layout_weight="2"
+            android:layout_weight="@integer/main_panel_camera_percent"
             android:background="#ff000000">
             <SurfaceView 
                 android:id="@+id/camera_view" 
                 android:layout_width="fill_parent" 
                 android:layout_height="fill_parent" />
+            <TextView
+                android:id="@+id/camera_text" 
+                android:layout_width="wrap_content" 
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:layout_marginBottom="0dp"
+                android:layout_marginLeft="0dp"
+                android:background="#80ffffff"
+                android:textColor="#ff000000"
+                android:textSize="@dimen/camera_text_size" />
         </FrameLayout>
         <LinearLayout
             android:layout_width="fill_parent" 
             android:layout_height="0dp"
-            android:layout_weight="1">
+            android:layout_weight="@integer/main_panel_lcm_percent">
             <View
                 android:layout_width="0dp"
                 android:layout_height="fill_parent"
@@ -121,9 +131,9 @@
         <LinearLayout
             android:layout_width="fill_parent" 
             android:layout_height="0dp"
-            android:layout_weight="1">
+            android:layout_weight="@integer/main_panel_player_percent">
             <Button 
-                android:textSize="26.0sp" 
+                android:textSize="@dimen/test_item_text_size" 
                 android:textStyle="bold" 
                 android:id="@+id/start_or_stop_record" 
                 android:layout_width="112.0dip" 
@@ -145,8 +155,7 @@
                     android:layout_width="fill_parent" 
                     android:layout_height="fill_parent" />
                 <TextView 
-                    android:textSize="24.0sp" 
-                    android:textStyle="bold" 
+                    android:textSize="@dimen/test_item_text_size" 
                     android:textColor="@color/blue" 
                     android:layout_gravity="center" 
                     android:id="@+id/recorder_player_states" 
