@@ -86,7 +86,7 @@ public class WifiController {
 	public void start(){
 		Log.i(TAG, "start");
 		registerListener();
-		mWorkHandler.sendEmptyMessageDelayed(WIFI_MSG_OPENING,1000);
+		mWorkHandler.sendEmptyMessageDelayed(WIFI_MSG_OPENING,3000);
 		/*
 		if(mWifiManager.isWifiEnabled()){
 			mUiHandler.sendEmptyMessage(WIFI_MSG_SCANNING);

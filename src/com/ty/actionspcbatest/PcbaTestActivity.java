@@ -22,6 +22,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
+import android.graphics.Rect;
 import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
 import android.hardware.Sensor;
@@ -60,6 +61,7 @@ import android.view.MenuItem;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.widget.Chronometer;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -77,14 +79,18 @@ public class PcbaTestActivity extends Activity {
 	private KeyTestPresenter mKeyTestPresenter;
 	private ArrayList<MiscItemPresenter> mMiscPresenters;
 	private SharedPreferences mSharedPreferences;
+	private TouchTestView mTouchTestView;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
+		Log.i(TAG, "activity onCreate");
 		super.onCreate(savedInstanceState);
 		
 		mSharedPreferences = getSharedPreferences("FactoryMode", 0);
 		
 		setContentView(R.layout.main);
+		
+		mTouchTestView = (TouchTestView)findViewById(R.id.touch_test_view);
 		
 		Intent intent = getIntent();
 		if(intent != null){
@@ -132,23 +138,28 @@ public class PcbaTestActivity extends Activity {
 		if(Config.IS_TELEPHONY_SUPPORT){
 			mItemPresenters.add(new VibrateTestPresenter());
 			
-			mMiscPresenters = new ArrayList<MiscItemPresenter>();
-			View miscTitleView = findViewById(R.id.misc_test_title);
-			LinearLayout miscTestContainer = (LinearLayout)findViewById(R.id.misc_test_container);
-			miscTitleView.setVisibility(View.VISIBLE);
-			miscTestContainer.setVisibility(View.VISIBLE);
+			//mMiscPresenters = new ArrayList<MiscItemPresenter>();
+			//View miscTitleView = findViewById(R.id.misc_test_title);
+			//LinearLayout miscTestContainer = (LinearLayout)findViewById(R.id.misc_test_container);
+			//miscTitleView.setVisibility(View.VISIBLE);
+			//miscTestContainer.setVisibility(View.VISIBLE);
 			for(int i=0;i<MISC_TEST_ITEMS.length;i++){
+				TestItemView child = new TestItemView(this);
+				child.setTitle(MISC_TEST_ITEMS[i].mTitleId);
+				LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1,-2);
+				manualTestContainer.addView(child, params);
+				/*
 				MiscItemView child = new MiscItemView(this);
 				child.setTitle(MISC_TEST_ITEMS[i].mTitleId);
 				LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2,-2);
 				miscTestContainer.addView(child, params);
-				
+				*/
 				TestItemPresenter presenter = getTestItemPresenter(MISC_TEST_ITEMS[i].mKey);
 				presenter.setTestItemView(child);
 				mItemPresenters.add(presenter);
+				child.setTestItemPresenter(presenter);
 				
-				mMiscPresenters.add((MiscItemPresenter)presenter);
-				child.setTestItemPresenter((MiscItemPresenter)presenter);
+				//mMiscPresenters.add((MiscItemPresenter)presenter);
 			}
 		}
 		
@@ -161,6 +172,7 @@ public class PcbaTestActivity extends Activity {
 	
 	@Override
 	public void onResume(){
+		Log.i(TAG, "activity onResume");
 		super.onResume();
 		/*
 		if(mMiscPresenters != null){
@@ -170,6 +182,8 @@ public class PcbaTestActivity extends Activity {
 				presenter.onResume();
 			}
 		}*/
+		if(mCallStart) return;
+		
 		if(mItemPresenters != null){
 			int presenterSize = mItemPresenters.size();
 			for(int i=0;i<presenterSize;i++){
@@ -181,12 +195,41 @@ public class PcbaTestActivity extends Activity {
 
 	@Override
 	public void onPause(){
+		Log.i(TAG, "activity onPause");
 		super.onPause();
 		if(mItemPresenters != null){
 			int presenterSize = mItemPresenters.size();
 			for(int i=0;i<presenterSize;i++){
 				TestItemPresenter presenter = mItemPresenters.get(i);
 				presenter.onPause();
+			}
+		}
+	}
+
+	private boolean mCallStart;
+	private void onCallStart(){
+		Log.i(TAG, "activity onCallStart");
+		mCallStart = true;
+		/*
+		if(mItemPresenters != null){
+			int presenterSize = mItemPresenters.size();
+			for(int i=0;i<presenterSize;i++){
+				TestItemPresenter presenter = mItemPresenters.get(i);
+				presenter.onPause();
+			}
+		}
+		*/
+	}
+	
+	private void onCallEnd(){
+		Log.i(TAG, "activity onCallEnd");
+		mCallStart = false;
+		
+		if(mItemPresenters != null){
+			int presenterSize = mItemPresenters.size();
+			for(int i=0;i<presenterSize;i++){
+				TestItemPresenter presenter = mItemPresenters.get(i);
+				presenter.onResume();
 			}
 		}
 	}
@@ -242,7 +285,7 @@ public class PcbaTestActivity extends Activity {
 		private Handler mUiHandler = new Handler(){
 			@Override
 			public void handleMessage(Message msg){
-				Log.i(TAG, "handleMessage what="+msg.what);
+				//Log.i(TAG, "handleMessage what="+msg.what);
 				switch(msg.what){
 					case WifiController.WIFI_MSG_OPENING:
 						showHint(PcbaTestActivity.this.getString(R.string.wifi_is_openning));
@@ -662,7 +705,7 @@ public class PcbaTestActivity extends Activity {
 		private Camera.Parameters mCameraParam;
 		private SurfaceHolder mHolder;
 		private int mCurrentIdx;
-		private static final int SWITCH_CAMERA_PERIOD = 4*1000;
+		private static final int SWITCH_CAMERA_PERIOD = 6*1000;
 		private TextView mCameraText;
 
 		public void onPause(){
@@ -822,6 +865,16 @@ public class PcbaTestActivity extends Activity {
 		        mRecordFile.delete();
 		    }
 		}
+
+		public void onPause(){
+			Log.i(TAG,"MediaTestPresenter onPause");
+			mVisualizerFx.pause();
+		}
+
+		public void onResume(){
+			Log.i(TAG,"MediaTestPresenter onResume");
+			mVisualizerFx.start();
+		}
 		
 		private void init(){
 			mPlayerStateView = (TextView)findViewById(R.id.recorder_player_states);
@@ -837,6 +890,12 @@ public class PcbaTestActivity extends Activity {
 					//mVisualizerFx.testStart(new File(PcbaTestActivity.this.getCacheDir().getPath() + File.separator + "record.3gpp"));
 					//mVisualizerFx.changePlayFile(Uri.fromFile(new File(PcbaTestActivity.this.getCacheDir().getPath() + File.separator + "TestRecordFile.3gpp")));
 				}
+			});
+			mRecordBtn.getViewTreeObserver().addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
+			    @Override
+			    public void onGlobalLayout() {
+			    	checkAddToUntouchArea(mRecordBtn);
+			    }
 			});
 			
 			mHandler.postDelayed(delayPlayRunnable,4000);
@@ -920,13 +979,13 @@ public class PcbaTestActivity extends Activity {
 	
 	private class TouchTestPresenter extends TestItemPresenter{
 		public void doTest(){
-			Settings.System.putInt(PcbaTestActivity.this.getContentResolver(),Settings.System.POINTER_LOCATION,1);
-			Settings.System.putInt(PcbaTestActivity.this.getContentResolver(),Settings.System.SHOW_TOUCHES,1);
+			//Settings.System.putInt(PcbaTestActivity.this.getContentResolver(),Settings.System.POINTER_LOCATION,1);
+			//Settings.System.putInt(PcbaTestActivity.this.getContentResolver(),Settings.System.SHOW_TOUCHES,1);
 		}
 		
 		public void doStop(){
-			Settings.System.putInt(PcbaTestActivity.this.getContentResolver(),Settings.System.POINTER_LOCATION,0);
-			Settings.System.putInt(PcbaTestActivity.this.getContentResolver(),Settings.System.SHOW_TOUCHES,0);
+			//Settings.System.putInt(PcbaTestActivity.this.getContentResolver(),Settings.System.POINTER_LOCATION,0);
+			//Settings.System.putInt(PcbaTestActivity.this.getContentResolver(),Settings.System.SHOW_TOUCHES,0);
 		}
 	}
 	
@@ -1034,6 +1093,10 @@ public class PcbaTestActivity extends Activity {
 			
 		}
 
+		public void doClickTest(){
+			
+		}
+
 		public void onPause(){
 			
 		}
@@ -1041,6 +1104,15 @@ public class PcbaTestActivity extends Activity {
 		public void onResume(){
 			
 		}
+/*
+		public void onCallStart(){
+			this.onPause();
+		}
+
+		public void onCallEnd(){
+			this.onResume();
+		}
+*/
 	}
 	
 	public static final int ITEM_KEY_AUTO_START = 0;
@@ -1122,6 +1194,8 @@ public class PcbaTestActivity extends Activity {
 		private TextView mSummaryView;
 		private TextView mTitleView;
 		public Chronometer mChronometer;
+		private TestItemPresenter mItemPresenter;
+		private boolean mLayouted;
 
 		public TestItemView(Context context) {
 			this(context,false);
@@ -1162,6 +1236,30 @@ public class PcbaTestActivity extends Activity {
 		
 		public Chronometer getChronometer(){
 			return mChronometer;
+		}
+		
+		public void setTitleClickable(boolean clickable){
+			if(clickable){
+				mTitleView.setBackgroundResource(R.drawable.button);
+				mTitleView.setOnClickListener(new View.OnClickListener(){
+					@Override
+					public void onClick(View arg0) {
+						if(mItemPresenter != null){
+							mItemPresenter.doClickTest();
+						}
+					}
+				});
+				mTitleView.getViewTreeObserver().addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
+				    @Override
+				    public void onGlobalLayout() {
+				    	checkAddToUntouchArea(mTitleView);
+				    }
+				});
+			}
+		}
+
+		public void setTestItemPresenter(TestItemPresenter presenter){
+			mItemPresenter = presenter;
 		}
 	}
 	
@@ -1219,6 +1317,8 @@ public class PcbaTestActivity extends Activity {
 		void setSuccess();
 		void setDefault();
 		Chronometer getChronometer();
+		void setTitleClickable(boolean clickable);
+		void setTestItemPresenter(TestItemPresenter presenter);
 	}
 	
 	public class MiscItemView extends TextView implements ItemViewInterface{
@@ -1267,6 +1367,18 @@ public class PcbaTestActivity extends Activity {
 		
 		public Chronometer getChronometer(){
 			return null;
+		}
+
+		@Override
+		public void setTitleClickable(boolean clickable) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void setTestItemPresenter(TestItemPresenter presenter) {
+			// TODO Auto-generated method stub
+			
 		}
 	}
 	
@@ -1358,14 +1470,60 @@ public class PcbaTestActivity extends Activity {
 		}
 	}
 	
-	public class CallItemPresenter extends MiscItemPresenter{
+	public class CallItemPresenter extends TestItemPresenter{
+		private boolean mSuccess;
+		
+		public void setTestItemView(ItemViewInterface view){
+			super.setTestItemView(view);
+			view.setTitleClickable(true);
+		}
+
+		public void doTest(){
+			this.showHint(PcbaTestActivity.this.getString(R.string.dial_hint));
+		}
+		
 		public void doClickTest(){
-			Intent intent = new Intent(PcbaTestActivity.this, Signal.class);
-			intent.setFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
+			if(mCallStart) return;
+			
+			PcbaTestActivity.this.onCallStart();
+			mCallStateHandler.setCallItemPresenter(this);
+	
+			Intent intent = getCallIntent(getCallNumber());
 			PcbaTestActivity.this.startActivity(intent);
+			
+			this.showHint(PcbaTestActivity.this.getString(R.string.dialing));
 		}	
 		
+		private Intent getCallIntent(String number){
+			Uri uri = Uri.fromParts("tel", number, null);
+			final Intent intent = new Intent("android.intent.action.CALL_PRIVILEGED", uri);
+			return intent;
+		}
+
+		public void onCallStateChange(int state){
+			if(state == TelephonyManager.CALL_STATE_OFFHOOK){
+				mSuccess = true;
+				//this.showSuccess("OK("+PcbaTestActivity.this.getString(R.string.incall)+")");
+				showCallState(R.string.incall);
+			}else if(state == TelephonyManager.CALL_STATE_IDLE){
+				//this.showHint(PcbaTestActivity.this.getString(R.string.dial_hint));
+				showCallState(R.string.dial_hint);
+				if(mCallStart){
+					PcbaTestActivity.this.onCallEnd();
+				}
+			}
+		}
+
+		private void showCallState(int resId){
+			if(mSuccess){
+				this.showSuccess("OK("+PcbaTestActivity.this.getString(resId)+")");
+			}else{
+				this.showHint(PcbaTestActivity.this.getString(resId));
+			}
+		}
+		
 		public void onResume(){
+			/*
 			int state = Utils.getState(mSharedPreferences, PcbaTestActivity.this.getString(R.string.telephone_name));
 			if(state == 1){
 				mTestItemView.setSuccess();
@@ -1374,28 +1532,32 @@ public class PcbaTestActivity extends Activity {
 			}else{
 				mTestItemView.setDefault();
 			}
+			*/
+		}
+
+		protected String getCallNumber(){
+			return "112";
 		}
 	}	
 	
 	public class UnCallItemPresenter extends CallItemPresenter{
-		public void doClickTest(){
-			Intent intent = new Intent(PcbaTestActivity.this, Signal.class);
-			intent.setFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
-			intent.putExtra("number", "10010");
-			PcbaTestActivity.this.startActivity(intent);
+		protected String getCallNumber(){
+			return "10010";
 		}
 	}
 	
 	public class CmCallItemPresenter extends CallItemPresenter{
-		public void doClickTest(){
-			Intent intent = new Intent(PcbaTestActivity.this, Signal.class);
-			intent.setFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
-			intent.putExtra("number", "10086");
-			PcbaTestActivity.this.startActivity(intent);
+		protected String getCallNumber(){
+			return "10086";
 		}
 	}
 	
-	public class FmItemPresenter extends MiscItemPresenter{
+	public class FmItemPresenter extends TestItemPresenter{
+		public void setTestItemView(ItemViewInterface view){
+			super.setTestItemView(view);
+			view.setTitleClickable(true);
+		}
+		
 		public void doClickTest(){
 			Intent intent = new Intent(PcbaTestActivity.this, FMRadio.class);
 			intent.setFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
@@ -1410,6 +1572,7 @@ public class PcbaTestActivity extends Activity {
 				mTestItemView.setError();
 			}else{
 				mTestItemView.setDefault();
+				this.showHint(PcbaTestActivity.this.getString(R.string.dial_hint));
 			}
 		}
 	}	
@@ -1481,4 +1644,64 @@ public class PcbaTestActivity extends Activity {
 			}
 		}
 	}
+	
+	private CallStateHandler mCallStateHandler = new CallStateHandler();
+	private class CallStateHandler{
+		protected Handler mHandler = new Handler();
+		private int mState = TelephonyManager.CALL_STATE_IDLE;
+		private CallItemPresenter mCallItemPresenter;
+		private MyPhoneStateListener[] mMyPhoneStateListener;
+		private Runnable mEndCall = new Runnable(){
+			@Override
+			public void run(){
+				PcbaTestActivity.this.sendBroadcast(new Intent("com.ty.action.end_call"));
+			}
+		};
+		private class MyPhoneStateListener extends PhoneStateListener{
+			@Override
+			public void onCallStateChanged(int state, String incomingNumber){
+				Log.i(TAG,"onCallStateChanged state="+state);
+				mState = state;
+				if(mCallItemPresenter != null){
+					mCallItemPresenter.onCallStateChange(state);
+				}
+				if(mState == TelephonyManager.CALL_STATE_OFFHOOK){
+					mHandler.postDelayed(mEndCall,1000*10);
+				}
+			}
+		}
+		
+		public CallStateHandler(){
+			int slotNum = SIMHelper.isGemini() ? 2 : 1;
+			mMyPhoneStateListener = new MyPhoneStateListener[slotNum];
+			for(int i=0;i<slotNum;i++){
+				mMyPhoneStateListener[i] = new MyPhoneStateListener();
+				SIMHelper.listen(mMyPhoneStateListener[i],PhoneStateListener.LISTEN_CALL_STATE,i);
+			}
+		}
+
+		public void setCallItemPresenter(CallItemPresenter presenter){
+			if(presenter != mCallItemPresenter && mState == TelephonyManager.CALL_STATE_IDLE){
+				mCallItemPresenter = presenter;
+			}
+		}
+	}
+	
+	public void checkAddToUntouchArea(View view) {
+		int w = view.getWidth();
+		int h = view.getHeight();
+		if(w > 0 && h > 0){
+			Rect newRect = null;
+			int []loc = new int[2]; 
+			view.getLocationOnScreen(loc);
+			newRect = new Rect(loc[0],loc[1],loc[0]+w,loc[1]+h);
+			
+			Object tag = view.getTag();
+			if(tag == null || !newRect.equals((Rect)tag)){
+				Log.i(TAG, "checkAddToUntouchArea w="+view.getWidth()+",x="+loc[0]+",y="+loc[1]);
+				mTouchTestView.addUntouchRect(view,newRect);
+				view.setTag(newRect);
+			}
+		}
+    }
 }

@@ -82,5 +82,9 @@
     
     <string name="item_lable_call_un">拨联通</string>
     <string name="item_lable_call_cm">拨移动</string>
+    
+    <string name="dialing">拨号中...</string>
+    <string name="dial_hint">点左边按钮测试</string>
+    <string name="incall">通话中...</string>
         
 </resources>
