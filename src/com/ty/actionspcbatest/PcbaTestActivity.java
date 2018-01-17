@@ -103,7 +103,7 @@ public class PcbaTestActivity extends Activity {
 			*/
 			setAutoLaunched();
 		}
-		
+
 		mLayoutInflater = (LayoutInflater)this.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 		mItemPresenters = new ArrayList<TestItemPresenter>();
 		
@@ -136,6 +136,8 @@ public class PcbaTestActivity extends Activity {
 		mItemPresenters.add(new TouchTestPresenter());
 		
 		if(Config.IS_TELEPHONY_SUPPORT){
+			mCallStateHandler = new CallStateHandler();
+			
 			mItemPresenters.add(new VibrateTestPresenter());
 			
 			//mMiscPresenters = new ArrayList<MiscItemPresenter>();
@@ -182,6 +184,7 @@ public class PcbaTestActivity extends Activity {
 				presenter.onResume();
 			}
 		}*/
+		mCallClicked = false;
 		if(mCallStart) return;
 		
 		if(mItemPresenters != null){
@@ -206,6 +209,7 @@ public class PcbaTestActivity extends Activity {
 		}
 	}
 
+	private boolean mCallClicked;
 	private boolean mCallStart;
 	private void onCallStart(){
 		Log.i(TAG, "activity onCallStart");
@@ -260,6 +264,9 @@ public class PcbaTestActivity extends Activity {
 		for(int i=0;i<presenterSize;i++){
 			TestItemPresenter presenter = mItemPresenters.get(i);
 			presenter.doStop();
+		}
+		if(mCallStateHandler != null){
+			mCallStateHandler.destroy();
 		}
 	}
 	
@@ -1030,8 +1037,8 @@ public class PcbaTestActivity extends Activity {
 			return new HeadsetTestPresenter();
 		}else if(key == ITEM_KEY_CAMERA){
 			return new CameraTestPresenter();
-		}else if(key >= ITEM_KEY_MANUAL_START && key < (ITEM_KEY_MANUAL_START+ITEM_KEY_CATEGORY_COUNT)){
-			return new ManualItemPresenter();
+		//}else if(key >= ITEM_KEY_MANUAL_START && key < (ITEM_KEY_MANUAL_START+ITEM_KEY_CATEGORY_COUNT)){
+		//	return new ManualItemPresenter();
 		}else if(key == ITEM_KEY_GPS){
 			return new GpsTestPresenter();
 		}else if(key == ITEM_KEY_CALL){
@@ -1082,6 +1089,7 @@ public class PcbaTestActivity extends Activity {
 		
 		public void showHint(String hint){
 			mTestItemView.setSummary(hint);
+			mTestItemView.setDefault();
 		}
 		
 		public void showFail(String result){
@@ -1131,18 +1139,14 @@ public class PcbaTestActivity extends Activity {
 	public static final int ITEM_KEY_USB = ITEM_KEY_MANUAL_START+1;
 	public static final int ITEM_KEY_HEADSET = ITEM_KEY_MANUAL_START+2;
 	public static final int ITEM_KEY_KEY = ITEM_KEY_MANUAL_START+3;	
+	public static final int ITEM_KEY_CALL = ITEM_KEY_MANUAL_START+4;	
+	public static final int ITEM_KEY_CALL_UN = ITEM_KEY_MANUAL_START+5;	
+	public static final int ITEM_KEY_CALL_CM = ITEM_KEY_MANUAL_START+6;	
+	public static final int ITEM_KEY_FM = ITEM_KEY_MANUAL_START+7;	
 	
 	public static final int ITEM_KEY_CAMERA_PREVIEW = 40;
-	
 	public static final int ITEM_KEY_LCD = 60;
-	
 	public static final int ITEM_KEY_AUDIO = 80;
-	
-	public static final int ITEM_KEY_CALL = 100;
-	public static final int ITEM_KEY_FM = 101;
-	
-	public static final int ITEM_KEY_CALL_UN = 102;
-	public static final int ITEM_KEY_CALL_CM = 103;
 	
 	public static final int ITEM_KEY_CATEGORY_COUNT = 20;
 	
@@ -1231,7 +1235,7 @@ public class PcbaTestActivity extends Activity {
 
 		@Override
 		public void setDefault() {
-			
+			mSummaryView.setTextColor(0xff878787);
 		}
 		
 		public Chronometer getChronometer(){
@@ -1483,30 +1487,37 @@ public class PcbaTestActivity extends Activity {
 		}
 		
 		public void doClickTest(){
-			if(mCallStart) return;
-			
-			PcbaTestActivity.this.onCallStart();
+			if(mCallClicked) {
+				Log.i(TAG,"doClickTest mCallClicked true");
+				return;
+			}
+
+			//PcbaTestActivity.this.onCallStart();
 			mCallStateHandler.setCallItemPresenter(this);
 	
 			Intent intent = getCallIntent(getCallNumber());
 			PcbaTestActivity.this.startActivity(intent);
 			
-			this.showHint(PcbaTestActivity.this.getString(R.string.dialing));
+			//this.showHint(PcbaTestActivity.this.getString(R.string.dialing));
 		}	
 		
 		private Intent getCallIntent(String number){
 			Uri uri = Uri.fromParts("tel", number, null);
 			final Intent intent = new Intent("android.intent.action.CALL_PRIVILEGED", uri);
+			intent.putExtra("com.android.phone.extra.slot",0);
 			return intent;
 		}
 
 		public void onCallStateChange(int state){
-			if(state == TelephonyManager.CALL_STATE_OFFHOOK){
+			if(state == 2){
 				mSuccess = true;
-				//this.showSuccess("OK("+PcbaTestActivity.this.getString(R.string.incall)+")");
 				showCallState(R.string.incall);
-			}else if(state == TelephonyManager.CALL_STATE_IDLE){
-				//this.showHint(PcbaTestActivity.this.getString(R.string.dial_hint));
+			}else if(state == 1){
+				showCallState(R.string.dialing);
+				if(!mCallStart){
+					PcbaTestActivity.this.onCallStart();
+				}
+			}else if(state == 0){
 				showCallState(R.string.dial_hint);
 				if(mCallStart){
 					PcbaTestActivity.this.onCallEnd();
@@ -1553,65 +1564,102 @@ public class PcbaTestActivity extends Activity {
 	}
 	
 	public class FmItemPresenter extends TestItemPresenter{
+		private boolean mClicked;
+		public void doTest(){
+			this.showHint(PcbaTestActivity.this.getString(R.string.dial_hint));
+		}
+		
 		public void setTestItemView(ItemViewInterface view){
 			super.setTestItemView(view);
 			view.setTitleClickable(true);
 		}
 		
 		public void doClickTest(){
+			mClicked = true;
 			Intent intent = new Intent(PcbaTestActivity.this, FMRadio.class);
 			intent.setFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
 			PcbaTestActivity.this.startActivity(intent);
 		}	
 		
 		public void onResume(){
+			Log.i(TAG, "FmItemPresenter onResume mClicked="+mClicked);
+			if(!mClicked) return;
 			int state = Utils.getState(mSharedPreferences, PcbaTestActivity.this.getString(R.string.fmradio_name));
+			Log.i(TAG, "FmItemPresenter onResume state="+state);
 			if(state == 1){
-				mTestItemView.setSuccess();
+				//mTestItemView.setSuccess();
+				showSuccess("OK");
 			}else if(state == 2){
-				mTestItemView.setError();
+				//mTestItemView.setError();
+				showFail("Fail");
 			}else{
-				mTestItemView.setDefault();
 				this.showHint(PcbaTestActivity.this.getString(R.string.dial_hint));
 			}
 		}
 	}	
 	
 	public class SimTestPresenter extends TestItemPresenter{
-		private boolean mSim1Exist;
-		private boolean mSim2Exist;
+		//private boolean mSim1Exist;
+		//private boolean mSim2Exist;
 		private SIMHelper mSimHelper;
 		private int[] mSimLevels;
 		private MyPhoneStateListener[] mMyPhoneStateListener;
 		private int mSlotNum;
+		private SignalStrength[] mSignalStrength;
+		private ServiceState[] mServiceState;
+		private boolean[] mSimExist;
 		
 		private class MyPhoneStateListener extends PhoneStateListener{
 			@SuppressLint("NewApi")
 			@Override
 			public void onSignalStrengthsChanged(SignalStrength signalStrength) { 
-				Log.i("hcj.SIM","onSignalStrengthsChanged signalStrength="+signalStrength);
+				/*
 				if(signalStrength == null){
 					return;
-				}
-				final int slotId = signalStrength.getMySimId();
-				mSimLevels[slotId] = signalStrength.getLevel();
+				}*/
+				//final int slotId = signalStrength.getMySimId();
+				int slotId = Arrays.asList(mMyPhoneStateListener).indexOf(this);
+				Log.i(TAG,"onSignalStrengthsChanged slotId="+slotId);
+				mSignalStrength[slotId] = signalStrength;
+				//mSimLevels[slotId] = signalStrength == null ? 0 : signalStrength.getLevel();
+				
 				updateSimStatus();
 			}
 			
 			@Override
 	        public void onServiceStateChanged(ServiceState state) {
 				int slotId = Arrays.asList(mMyPhoneStateListener).indexOf(this);
-				int srvState = state.getVoiceRegState();
-				if(srvState == ServiceState.STATE_POWER_OFF){
-					mSimLevels[slotId] = 0;
-				}
+				Log.i(TAG,"onServiceStateChanged slotId="+slotId);
+				mServiceState[slotId] = state;
+				
+				updateSimStatus();
 			}
 		};
+		
+		private boolean hasService(ServiceState srvState){
+			if (srvState != null) {
+				Log.i(TAG,"hasService state="+srvState.getVoiceRegState());
+				switch (srvState.getVoiceRegState()) {
+					case ServiceState.STATE_POWER_OFF:
+						return false;
+					case ServiceState.STATE_OUT_OF_SERVICE:
+					case ServiceState.STATE_EMERGENCY_ONLY:
+						return srvState.getDataRegState() == ServiceState.STATE_IN_SERVICE;
+					default:
+						return true;
+				}
+			} else {
+				return false;
+			}
+		}
 		
 		public void doTest(){
 			mSimHelper = new SIMHelper(PcbaTestActivity.this);
 			mSlotNum = mSimHelper.isGemini() ? 2 : 1;
 			mSimLevels = new int[mSlotNum];
+			mSignalStrength = new SignalStrength[mSlotNum];
+	        mServiceState = new ServiceState[mSlotNum];
+	        mSimExist = new boolean[mSlotNum];
 			
 			mMyPhoneStateListener = new MyPhoneStateListener[mSlotNum];
 			for(int i=0;i<mSlotNum;i++){
@@ -1624,64 +1672,91 @@ public class PcbaTestActivity extends Activity {
 			
 			boolean sim1Exist = mSimHelper.isSimInserted(0);
 			boolean sim2Exist = mSimHelper.isSimInserted(1);
-			mSim1Exist = sim1Exist;
-			mSim2Exist = mSlotNum > 1 ? sim2Exist : true;
+			//mSim1Exist = sim1Exist;
+			//mSim2Exist = mSlotNum > 1 ? sim2Exist : true;
+			mSimExist[0] = sim1Exist;
+			mSimExist[1] = mSlotNum > 1 ? sim2Exist : true;
 			updateSimStatus();
 		}
 		
+		@SuppressLint("NewApi")
 		private void updateSimStatus(){
+			for(int i=0;i<mSlotNum;i++){
+				if(!mSimExist[i]){
+					mSimLevels[i] = 0;
+				}else if(mServiceState[i] == null
+		                || (!hasService(mServiceState[i]) && !mServiceState[i].isEmergencyOnly())){
+					mSimLevels[i] = 0;
+				}else if(!hasService(mServiceState[i])){
+					mSimLevels[i] = 0;
+				}else{
+					mSimLevels[i] = mSignalStrength[i] == null ? 0 : mSignalStrength[i].getLevel();
+				}
+			}
 			StringBuilder sb = new StringBuilder();
-			sb.append(mSim1Exist ? "SIM1:ÒÑ¼ì²â(ÐÅºÅ:"+mSimLevels[0]+")" : "SIM1:Î´¼ì²â");
+			sb.append(mSimExist[0] ? "SIM1:ÒÑ¼ì²â(ÐÅºÅ:"+mSimLevels[0]+")" : "SIM1:Î´¼ì²â");
 			if(mSimHelper.isGemini()){
 				sb.append("\n");
-				sb.append(mSim2Exist ? "SIM2:ÒÑ¼ì²â(ÐÅºÅ:"+mSimLevels[1]+")" : "SIM2:Î´¼ì²â");
+				sb.append(mSimExist[1] ? "SIM2:ÒÑ¼ì²â(ÐÅºÅ:"+mSimLevels[1]+")" : "SIM2:Î´¼ì²â");
 			}
 			String result = sb.toString();
-			if(mSim1Exist && mSim2Exist){
+			if((mSimExist[0] && mSimLevels[0] >= 3) && (mSimExist[1] && mSimLevels[1] >= 3)){
 				showSuccess(result);
-			}else{
+			}else if(!mSimExist[0] || !mSimExist[1]){
 				showFail(result);
+			}else{
+				showHint(result);
 			}
 		}
 	}
 	
-	private CallStateHandler mCallStateHandler = new CallStateHandler();
+	private CallStateHandler mCallStateHandler;
 	private class CallStateHandler{
 		protected Handler mHandler = new Handler();
-		private int mState = TelephonyManager.CALL_STATE_IDLE;
 		private CallItemPresenter mCallItemPresenter;
-		private MyPhoneStateListener[] mMyPhoneStateListener;
 		private Runnable mEndCall = new Runnable(){
 			@Override
 			public void run(){
 				PcbaTestActivity.this.sendBroadcast(new Intent("com.ty.action.end_call"));
 			}
 		};
-		private class MyPhoneStateListener extends PhoneStateListener{
+
+		private BroadcastReceiver mCallStateReceiver = new BroadcastReceiver(){
 			@Override
-			public void onCallStateChanged(int state, String incomingNumber){
-				Log.i(TAG,"onCallStateChanged state="+state);
-				mState = state;
-				if(mCallItemPresenter != null){
-					mCallItemPresenter.onCallStateChange(state);
-				}
-				if(mState == TelephonyManager.CALL_STATE_OFFHOOK){
-					mHandler.postDelayed(mEndCall,1000*10);
+			public void onReceive(Context context, Intent intent) {
+				String action = intent.getAction();
+				if("com.ty.action.call_state".equals(action)){
+					int state = intent.getIntExtra("state",0);
+					android.util.Log.i(TAG,"mCallStateReceiver onReceive state="+state);
+					if(mCallItemPresenter != null){
+						mCallItemPresenter.onCallStateChange(state);
+					}
+					if(state == 2){
+						mHandler.postDelayed(mEndCall,1000*10);
+					}
 				}
 			}
-		}
+		};
 		
 		public CallStateHandler(){
+			/*
 			int slotNum = SIMHelper.isGemini() ? 2 : 1;
 			mMyPhoneStateListener = new MyPhoneStateListener[slotNum];
 			for(int i=0;i<slotNum;i++){
 				mMyPhoneStateListener[i] = new MyPhoneStateListener();
 				SIMHelper.listen(mMyPhoneStateListener[i],PhoneStateListener.LISTEN_CALL_STATE,i);
 			}
+			*/
+			IntentFilter intentFilter = new IntentFilter("com.ty.action.call_state");
+			PcbaTestActivity.this.registerReceiver(mCallStateReceiver, intentFilter);
+		}
+
+		public void destroy(){
+			PcbaTestActivity.this.unregisterReceiver(mCallStateReceiver);
 		}
 
 		public void setCallItemPresenter(CallItemPresenter presenter){
-			if(presenter != mCallItemPresenter && mState == TelephonyManager.CALL_STATE_IDLE){
+			if(presenter != mCallItemPresenter){
 				mCallItemPresenter = presenter;
 			}
 		}
