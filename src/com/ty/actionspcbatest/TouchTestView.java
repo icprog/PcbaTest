@@ -37,10 +37,23 @@ public class TouchTestView extends View {
         }
     }
 	
+	private boolean mTrackTouch;
 	@Override
 	public boolean onTouchEvent(MotionEvent e) {
-		boolean handled = false;
+		//boolean handled = false;
 		int action = e.getAction();
+		switch(action){
+			case MotionEvent.ACTION_DOWN:
+				mTrackTouch = checkTrack((int)e.getX(),(int)e.getY());
+				if(mTrackTouch){
+					mInput.clear();
+				}
+				break;
+			case MotionEvent.ACTION_UP:
+			case MotionEvent.ACTION_CANCEL:
+				break;
+		}
+		/*
 		if(MotionEvent.ACTION_DOWN == action || MotionEvent.ACTION_MOVE == action){
 			Iterator iter = mUntouchRects.entrySet().iterator();
 			while (iter.hasNext()) {
@@ -56,9 +69,27 @@ public class TouchTestView extends View {
 			}
 			mInput.add(new Point((int)e.getX(),(int)e.getY()));
 			this.postInvalidate();
-			handled = true;
+			//handled = true;
+		}*/
+		if(mTrackTouch){
+			mInput.add(new Point((int)e.getX(),(int)e.getY()));
+			this.postInvalidate();
 		}
-		return handled;
+		return mTrackTouch;
+	}
+	
+	private boolean checkTrack(int x, int y){
+		boolean tracking = true;
+		Iterator iter = mUntouchRects.entrySet().iterator();
+		while (iter.hasNext()) {
+			Map.Entry entry = (Map.Entry) iter.next();
+			//Object key = entry.getKey();
+			Rect rect = (Rect)entry.getValue();
+			if(rect.contains(x, y)){
+				tracking = false;
+			}
+		}
+		return tracking;
 	}
 	
 	public void addUntouchRect(View view, Rect rect){

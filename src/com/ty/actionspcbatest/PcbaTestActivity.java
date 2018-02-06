@@ -62,6 +62,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.widget.Button;
 import android.widget.Chronometer;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -139,30 +140,40 @@ public class PcbaTestActivity extends Activity {
 			mCallStateHandler = new CallStateHandler();
 			
 			mItemPresenters.add(new VibrateTestPresenter());
-			
-			//mMiscPresenters = new ArrayList<MiscItemPresenter>();
-			//View miscTitleView = findViewById(R.id.misc_test_title);
-			//LinearLayout miscTestContainer = (LinearLayout)findViewById(R.id.misc_test_container);
-			//miscTitleView.setVisibility(View.VISIBLE);
-			//miscTestContainer.setVisibility(View.VISIBLE);
+			/*
 			for(int i=0;i<MISC_TEST_ITEMS.length;i++){
 				TestItemView child = new TestItemView(this);
 				child.setTitle(MISC_TEST_ITEMS[i].mTitleId);
 				LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1,-2);
 				manualTestContainer.addView(child, params);
-				/*
-				MiscItemView child = new MiscItemView(this);
-				child.setTitle(MISC_TEST_ITEMS[i].mTitleId);
-				LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2,-2);
-				miscTestContainer.addView(child, params);
-				*/
 				TestItemPresenter presenter = getTestItemPresenter(MISC_TEST_ITEMS[i].mKey);
 				presenter.setTestItemView(child);
 				mItemPresenters.add(presenter);
 				child.setTestItemPresenter(presenter);
-				
-				//mMiscPresenters.add((MiscItemPresenter)presenter);
-			}
+			}*/
+			Button button = (Button)findViewById(R.id.call_un);
+			MiscItemView child = new MiscItemView(button);
+			child.setTitle(MISC_TEST_ITEMS[0].mTitleId);
+			TestItemPresenter presenter = getTestItemPresenter(MISC_TEST_ITEMS[0].mKey);
+			presenter.setTestItemView(child);
+			mItemPresenters.add(presenter);
+			child.setTestItemPresenter(presenter);
+			
+			button = (Button)findViewById(R.id.call_mb);
+			child = new MiscItemView(button);
+			child.setTitle(MISC_TEST_ITEMS[1].mTitleId);
+			presenter = getTestItemPresenter(MISC_TEST_ITEMS[1].mKey);
+			presenter.setTestItemView(child);
+			mItemPresenters.add(presenter);
+			child.setTestItemPresenter(presenter);
+			
+			button = (Button)findViewById(R.id.fm);
+			child = new MiscItemView(button);
+			child.setTitle(MISC_TEST_ITEMS[2].mTitleId);
+			presenter = getTestItemPresenter(MISC_TEST_ITEMS[2].mKey);
+			presenter.setTestItemView(child);
+			mItemPresenters.add(presenter);
+			child.setTestItemPresenter(presenter);
 		}
 		
 		int presenterSize = mItemPresenters.size();
@@ -295,30 +306,35 @@ public class PcbaTestActivity extends Activity {
 				//Log.i(TAG, "handleMessage what="+msg.what);
 				switch(msg.what){
 					case WifiController.WIFI_MSG_OPENING:
-						showHint(PcbaTestActivity.this.getString(R.string.wifi_is_openning));
+						showHint(PcbaTestActivity.this.getString(R.string.wifi_is_openning)+"\n");
 						break;
 					case WifiController.WIFI_MSG_SCANNING:
-						showHint(PcbaTestActivity.this.getString(R.string.wifi_is_searching));
+						showHint(PcbaTestActivity.this.getString(R.string.wifi_is_searching)+"\n");
 						break;
 					case WifiController.WIFI_MSG_NONE_DEVICE:
-						showFail("FAIL(Unable to find device)");						
+						showFail("FAIL(Unable to find device)\n");						
 						break;
 					case WifiController.WIFI_MSG_PASS:
 						List<ScanResult> listResult = (List<ScanResult>)msg.obj;
 						if(listResult == null){
-							break;
+							//break;
 						}
 						Log.i("hcj", "act listResult="+listResult.size());
 						StringBuilder sb = new StringBuilder();
 						sb.append("OK|WIFI数:");
-						sb.append(listResult.size());
-						sb.append("|信号强度:\n[");
-						for(int i=0;i<listResult.size();i++){
+						int wifiNum = listResult == null ? 0 : listResult.size();
+						sb.append(wifiNum);
+						sb.append("\n强度:[");
+						int showNum = Math.min(wifiNum, 10);
+						for(int i=0;i<showNum;i++){
 							if(i > 0){
 								sb.append(",");
 							}
 							int level = WifiManager.calculateSignalLevel(listResult.get(i).level, 8);
 							sb.append(level);
+						}
+						if(showNum < wifiNum){
+							sb.append("...");
 						}
 						sb.append("]");
 						showSuccess(sb.toString());
@@ -1325,48 +1341,54 @@ public class PcbaTestActivity extends Activity {
 		void setTestItemPresenter(TestItemPresenter presenter);
 	}
 	
-	public class MiscItemView extends TextView implements ItemViewInterface{
-		private MiscItemPresenter mTestItemPresenter;
+	public class MiscItemView implements ItemViewInterface{
+		private TestItemPresenter mTestItemPresenter;
+		private Button mButton;
+		private String mTitle;
 
-		public MiscItemView(Context context) {
-			super(context);
-			Resources res = context.getResources();
-			this.setPadding(20, 10, 20, 10);
-			this.setBackgroundResource(R.drawable.btn_default);
-			this.setTextSize(/*res.getDimensionPixelSize(R.dimen.test_item_text_size)*/20);
-			this.setOnClickListener(new View.OnClickListener() {				
+		public MiscItemView(Button button) {
+			mButton = button;
+			mButton.setOnClickListener(new View.OnClickListener() {				
 				@Override
 				public void onClick(View arg0) {
+					Log.i(TAG,"MiscItemView onClick mTestItemPresenter="+mTestItemPresenter);
 					if(mTestItemPresenter == null){
 						return;
 					}
 					mTestItemPresenter.doClickTest();
 				}
 			});
+			mButton.getViewTreeObserver().addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
+			    @Override
+			    public void onGlobalLayout() {
+			    	checkAddToUntouchArea(mButton);
+			    }
+			});
 		}
 		
-		public void setTestItemPresenter(MiscItemPresenter presenter){
+		public void setTestItemPresenter(TestItemPresenter presenter){
 			mTestItemPresenter = presenter;
 		}
 		
 		public void setTitle(int resId){
-			this.setText(resId);
+			//mButton.setText(resId);
+			mTitle = mButton.getContext().getString(resId);
 		}
 		
 		public void setSummary(String summary){
-			this.setText(summary);
+			mButton.setText(mTitle+"\n"+summary);
 		}
 		
 		public void setDefault(){
-			this.setTextColor(0xFF878787);
+			mButton.setTextColor(0xFF878787);
 		}
 		
 		public void setError(){
-			this.setTextColor(0xFFFF0000);
+			mButton.setTextColor(0xFFFF0000);
 		}
 		
 		public void setSuccess(){
-			this.setTextColor(0xFF0000FF);
+			mButton.setTextColor(0xFF0000FF);
 		}
 		
 		public Chronometer getChronometer(){
@@ -1378,12 +1400,13 @@ public class PcbaTestActivity extends Activity {
 			// TODO Auto-generated method stub
 			
 		}
-
+/*
 		@Override
 		public void setTestItemPresenter(TestItemPresenter presenter) {
 			// TODO Auto-generated method stub
 			
 		}
+*/
 	}
 	
 	public class GpsTestPresenter extends TestItemPresenter{

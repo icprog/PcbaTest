@@ -60,6 +60,7 @@
 		            android:divider="?android:attr/listDivider"
 		            android:paddingLeft="4dp">
 		        </LinearLayout>
+		        <!-- 
 		        <TextView
 		            android:id="@+id/misc_test_title"
 		            android:layout_width="match_parent"
@@ -71,14 +72,53 @@
 		            android:textStyle="bold"
 		            android:textSize="@dimen/test_item_text_size"
 		            android:visibility="gone"
-		            />  
+		            />   -->
+		        <View 
+		            android:layout_width="match_parent"
+		            android:layout_height="1dp"
+		            android:background="?android:attr/listDivider"/>
 		        <LinearLayout
 		            android:id="@+id/misc_test_container" 
-		            android:orientation="horizontal" 
+		            android:orientation="vertical" 
 		            android:layout_width="fill_parent" 
-		            android:layout_height="wrap_content"
-		            android:visibility="gone"
+		            android:layout_height="0dp"
+		            android:layout_weight="1"
 		            android:paddingLeft="4dp">
+		            <LinearLayout
+			            android:orientation="horizontal" 
+			            android:layout_width="fill_parent" 
+			            android:layout_height="76dp"
+			            android:paddingLeft="4dp">
+			            <Button
+			                android:id="@+id/call_un"
+			                android:layout_width="0dp"
+			                android:layout_height="match_parent"
+			                android:layout_weight="1"/>
+			            <Button
+			                android:id="@+id/call_mb"
+			                android:layout_width="0dp"
+			                android:layout_height="match_parent"
+			                android:layout_weight="1"/>
+			        </LinearLayout>
+			        <LinearLayout
+			            android:orientation="horizontal" 
+			            android:layout_width="fill_parent" 
+			            android:layout_height="76dp"
+			            android:paddingLeft="4dp">
+			            <Button
+			                android:id="@+id/fm"
+			                android:layout_width="0dp"
+			                android:layout_height="match_parent"
+			                android:layout_weight="1"
+			                android:text="aa"/>
+			            <Button
+			                android:id="@+id/dummy"
+			                android:layout_width="0dp"
+			                android:layout_height="match_parent"
+			                android:layout_weight="1"
+			                android:visibility="invisible"
+			                android:text="aa"/>
+			        </LinearLayout>
 		        </LinearLayout>
 		    </LinearLayout>
 	    </ScrollView> 
